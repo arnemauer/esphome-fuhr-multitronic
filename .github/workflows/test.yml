@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  protocol:
+    name: Protocol decoder (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: g++ -std=c++11 -O2 -Wall -Wextra -Werror -o tests/test_native tests/test_native.cpp
+      - name: Replay captures
+        run: cd tests && ./test_native .
+
+  esphome:
+    name: ESPHome config validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ESPHome
+        run: pip install esphome
+      - name: Create secrets
+        run: |
+          printf 'wifi_ssid: test\nwifi_password: testtesttest\n' > secrets.yaml
+      - name: Validate example configuration
+        run: esphome config fuhr_lock.yaml

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Native test binary
+tests/test_native
+tests/*.o
+
+# ESPHome build output
+.esphome/
+secrets.yaml
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store

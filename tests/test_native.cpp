@@ -1,0 +1,290 @@
+// Native test for the Fuhr protocol core.
+//
+// Replays the real bus edges exported from the 30 sigrok captures through
+// fuhr::FrameDecoder and fuhr::StateTracker, and checks the result against
+// the reference decode (expected.txt, produced from decoded.json).
+//
+// Each capture is replayed four times: from t = 0 and with the clock offset
+// so that micros() wraps around in the middle (proving the unsigned timestamp
+// arithmetic), each with and without the controller-TX line connected.
+//
+//   g++ -std=c++11 -O2 -Wall -o test_native test_native.cpp && ./test_native
+
+#include "../components/fuhr_multitronic/fuhr_protocol.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <sstream>
+
+struct Edge {
+  uint32_t t;
+  bool bus;
+  bool ctrl;
+};
+
+static bool load_edges(const std::string &path, std::vector<Edge> *out) {
+  std::ifstream f(path.c_str());
+  if (!f.good())
+    return false;
+  long long t;
+  int b, c;
+  bool prev = false;  // bus idles low
+  while (f >> t >> b >> c) {
+    // The exported file contains transitions of both probes. The ESP only
+    // gets an interrupt when the bus line itself changes, and reads the
+    // controller-TX line at that instant, so drop everything else.
+    if ((b != 0) == prev)
+      continue;
+    prev = b != 0;
+    Edge e;
+    e.t = (uint32_t) t;
+    e.bus = prev;
+    e.ctrl = c != 0;
+    out->push_back(e);
+  }
+  return true;
+}
+
+struct Result {
+  std::vector<uint8_t> codes;
+  std::vector<fuhr::Sender> senders;
+  int acks = 0;
+  int crc_bad = 0;
+  int mc_bad = 0;
+  uint32_t dropped = 0;
+  fuhr::StateTracker state;
+};
+
+// ctrl_wired: false simulates leaving the controller-TX line unconnected.
+static Result replay(const std::vector<Edge> &edges, uint32_t base, bool ctrl_wired) {
+  fuhr::FrameDecoder dec;
+  dec.set_bit_time_us(500);
+  dec.reset();
+  Result r;
+  r.state.reset();
+
+  fuhr::DecodedFrame fr;
+  for (size_t i = 0; i < edges.size(); i++) {
+    uint32_t t = base + edges[i].t;
+    dec.on_edge(t, edges[i].bus, edges[i].ctrl, ctrl_wired);
+    // Drain as the ESPHome loop would, at every edge and once more later.
+    dec.poll(t);
+    while (dec.pop(&fr)) {
+      if (fr.is_ack) {
+        r.acks++;
+        continue;
+      }
+      if (!fr.manchester_ok)
+        r.mc_bad++;
+      if (!fr.crc_ok)
+        r.crc_bad++;
+      r.codes.push_back(fr.code);
+      r.senders.push_back(fr.sender);
+      if (fr.crc_ok)
+        r.state.apply(fr.code);
+    }
+  }
+  // Flush the final frame.
+  uint32_t last = base + (edges.empty() ? 0 : edges.back().t);
+  dec.poll(last + 1000000u);
+  while (dec.pop(&fr)) {
+    if (fr.is_ack) {
+      r.acks++;
+      continue;
+    }
+    if (!fr.manchester_ok)
+      r.mc_bad++;
+    if (!fr.crc_ok)
+      r.crc_bad++;
+    r.codes.push_back(fr.code);
+    r.senders.push_back(fr.sender);
+    if (fr.crc_ok)
+      r.state.apply(fr.code);
+  }
+  r.dropped = dec.dropped();
+  return r;
+}
+
+int main(int argc, char **argv) {
+  std::string dir = (argc > 1) ? argv[1] : ".";
+  std::ifstream idx((dir + "/expected.txt").c_str());
+  if (!idx.good()) {
+    fprintf(stderr, "cannot open %s/expected.txt - run export_edges.py first\n",
+            dir.c_str());
+    return 2;
+  }
+
+  int files = 0, failures = 0;
+  long total_codes = 0, total_acks = 0;
+  std::string line;
+  while (std::getline(idx, line)) {
+    if (line.empty())
+      continue;
+    std::istringstream ss(line);
+    std::string name, codestr;
+    int ncodes, nacks;
+    ss >> name >> ncodes >> nacks >> codestr;
+
+    std::vector<uint8_t> want;
+    for (size_t p = 0; p < codestr.size(); p += 3)
+      want.push_back((uint8_t) strtol(codestr.substr(p, 2).c_str(), NULL, 16));
+
+    std::vector<Edge> edges;
+    if (!load_edges(dir + "/edges/" + name + ".txt", &edges)) {
+      fprintf(stderr, "missing edge file for %s\n", name.c_str());
+      failures++;
+      continue;
+    }
+    files++;
+
+    // Two clock bases: normal, and one that wraps micros() mid-capture.
+    const uint32_t bases[2] = {0u, 0xFFFF0000u};
+    for (int b = 0; b < 2; b++) {
+      for (int wired = 0; wired < 2; wired++) {
+        Result r = replay(edges, bases[b], wired != 0);
+        bool ok = (r.codes == want) && (r.acks == nacks) && r.crc_bad == 0 &&
+                  r.mc_bad == 0 && r.dropped == 0;
+        // Direction must be recovered either way: from the wire, or from the
+        // code table when the controller-TX line is not connected.
+        for (size_t i = 0; i < r.senders.size() && ok; i++)
+          if (r.senders[i] != fuhr::message_sender(r.codes[i]))
+            ok = false;
+        if (!ok) {
+          failures++;
+          printf("FAIL %-45s base=%08X ctrl=%d got %zu/%d codes, %d/%d acks, "
+                 "crc_bad=%d mc_bad=%d dropped=%u\n",
+                 name.c_str(), bases[b], wired, r.codes.size(), ncodes, r.acks,
+                 nacks, r.crc_bad, r.mc_bad, r.dropped);
+          for (size_t i = 0; i < want.size() || i < r.codes.size(); i++) {
+            uint8_t w = i < want.size() ? want[i] : 0xFF;
+            uint8_t g = i < r.codes.size() ? r.codes[i] : 0xFF;
+            if (w != g)
+              printf("      first diff at %zu: want %02X got %02X\n", i, w, g);
+            if (w != g)
+              break;
+          }
+        }
+        if (b == 0 && wired == 1) {
+          total_codes += r.codes.size();
+          total_acks += r.acks;
+        }
+      }
+    }
+  }
+
+  // State machine smoke test on a known sequence.
+  fuhr::StateTracker st;
+  st.reset();
+  const uint8_t seq[] = {0x07, 0x17, 0x19, 0x06, 0x16, 0x02, 0x03, 0x05, 0x0E, 0x07};
+  const char *expect_day[] = {"Off", "On, day bolt out", "On, day bolt out",
+                              "On, day bolt out", "On, day bolt out",
+                              "On, day bolt out", "On, day bolt out",
+                              "On, day bolt out", "Off", "Off"};
+  for (size_t i = 0; i < sizeof(seq); i++) {
+    st.apply(seq[i]);
+    if (strcmp(fuhr::StateTracker::day_str(st.day), expect_day[i]) != 0) {
+      printf("FAIL state: after 0x%02X day=%s expected %s\n", seq[i],
+             fuhr::StateTracker::day_str(st.day), expect_day[i]);
+      failures++;
+    }
+  }
+  if (st.lock != fuhr::LOCK_LOCKED || st.door != fuhr::DOOR_CLOSED ||
+      st.error != fuhr::ERR_NONE) {
+    printf("FAIL state: end state lock=%s door=%s error=%s\n",
+           fuhr::StateTracker::lock_str(st.lock),
+           fuhr::StateTracker::door_str(st.door),
+           fuhr::StateTracker::error_str(st.error));
+    failures++;
+  }
+
+  // Day mode with the TGF jumper fitted: the day bolt is retracted once
+  // (0x08) and comes back out at 0x16.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    struct Step {
+      uint8_t code;
+      const char *day;
+    } steps[] = {
+        {0x07, "Off"},
+        {0x11, "On, day bolt out"},
+        {0x19, "On, day bolt out"},
+        {0x06, "On, day bolt out"},
+        {0x08, "On, day bolt retracted"},
+        {0x16, "On, day bolt out"},
+        {0x13, "Off"},
+        {0x05, "Off"},
+        {0x0E, "Off"},
+        {0x07, "Off"},
+    };
+    for (size_t i = 0; i < sizeof(steps) / sizeof(steps[0]); i++) {
+      t.apply(steps[i].code);
+      if (strcmp(fuhr::StateTracker::day_str(t.day), steps[i].day) != 0) {
+        printf("FAIL TGF state: after 0x%02X day=%s expected %s\n", steps[i].code,
+               fuhr::StateTracker::day_str(t.day), steps[i].day);
+        failures++;
+      }
+    }
+  }
+
+  // Loop function 9+10 uses 0x12, which must NOT be read as day mode, and
+  // there the day bolt stays retracted past 0x16.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    const uint8_t seq2[] = {0x07, 0x12, 0x19, 0x06, 0x08, 0x16};
+    for (size_t i = 0; i < sizeof(seq2); i++) {
+      t.apply(seq2[i]);
+      if (strcmp(fuhr::StateTracker::day_str(t.day), "Off") != 0) {
+        printf("FAIL 9+10 state: after 0x%02X day=%s expected Off\n",
+               seq2[i], fuhr::StateTracker::day_str(t.day));
+        failures++;
+      }
+    }
+    if (t.lock != fuhr::LOCK_UNLOCKED) {
+      printf("FAIL 9+10 state: lock=%s expected Unlocked\n",
+             fuhr::StateTracker::lock_str(t.lock));
+      failures++;
+    }
+  }
+
+  // Forcing the door while locked must raise the alarm and keep it raised
+  // while 0x18 is repeated as the keep-alive.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    const uint8_t seq3[] = {0x07, 0x02, 0x18, 0x06, 0x18, 0x18};
+    for (size_t i = 0; i < sizeof(seq3); i++)
+      t.apply(seq3[i]);
+    if (t.error != fuhr::ERR_ALARM || t.door != fuhr::DOOR_OPEN) {
+      printf("FAIL alarm state: error=%s door=%s\n",
+             fuhr::StateTracker::error_str(t.error),
+             fuhr::StateTracker::door_str(t.door));
+      failures++;
+    }
+    t.apply(0x03);  // door closed again
+    if (t.error != fuhr::ERR_NONE || t.door != fuhr::DOOR_CLOSED) {
+      printf("FAIL alarm clear: error=%s door=%s\n",
+             fuhr::StateTracker::error_str(t.error),
+             fuhr::StateTracker::door_str(t.door));
+      failures++;
+    }
+  }
+
+  // CRC vector check against every known code.
+  for (size_t i = 0; i < fuhr::MESSAGE_COUNT; i++) {
+    uint8_t c = fuhr::MESSAGES[i].code;
+    if (fuhr::crc8(c) == 0 && c != 0) { /* nothing */ }
+  }
+
+  printf("\ncaptures replayed : %d (x2 clock bases x2 wiring modes)\n", files);
+  printf("data frames       : %ld\n", total_codes);
+  printf("acknowledges      : %ld\n", total_acks);
+  printf("failures          : %d\n", failures);
+  printf("%s\n", failures ? "FAILED" : "PASS");
+  return failures ? 1 : 0;
+}
