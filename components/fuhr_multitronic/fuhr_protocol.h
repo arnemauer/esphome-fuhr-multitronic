@@ -337,7 +337,14 @@ struct StateTracker {
         lock = LOCK_LOCKING;
         break;
       case 0x06:  // bolts retracted
-        lock = LOCK_UNLOCKED;
+        // Not while a tamper is active. Forcing a locked door also produces
+        // 0x06 - the bolts are no longer engaging anything - but the lock is
+        // still very much locked. 0x06 cannot simply be ignored either: in
+        // day mode and permanent open it is the repeated keep-alive, and
+        // therefore the only thing that tells us the lock is unlocked after
+        // a reboot.
+        if (tamper != TRI_TRUE)
+          lock = LOCK_UNLOCKED;
         break;
       case 0x07:  // door locked
         door = DOOR_CLOSED;
@@ -388,6 +395,10 @@ struct StateTracker {
         break;
       case 0x18:  // door opened while locked
         door = DOOR_OPEN;
+        // The message is proof that the lock is locked - that is what makes
+        // it a tamper - so it also settles the lock state after a reboot
+        // that happens to land in the middle of one.
+        lock = LOCK_LOCKED;
         tamper = TRI_TRUE;
         break;
       default:

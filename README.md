@@ -11,10 +11,36 @@ The protocol is not published by the manufacturer. It was reverse engineered
 from 30 logic-analyser captures of a working installation; the full
 description is in [Protocol](#protocol) below.
 
+## Why this exists
+
+The Fuhr controller can be driven from home automation — a relay across the
+right terminals unlocks the door — but it is a one-way street. **The controller
+reports nothing back.**
+
+* **You cannot tell whether the command worked.** Switch the relay and you know
+  the controller was asked to unlock. Whether the lock actually unlocked, or
+  jammed, or reported a fault, never reaches you. The lock does say so: it sends
+  `0x0D` when it is blocked and `0x16` when the action completed. The controller
+  simply has no way to pass that on.
+* **You cannot tell whether the door is open or closed.** The controller has no
+  output for it, so a normal setup needs a separate door contact — even though
+  the controller is already being told, several times a minute, exactly what the
+  door is doing.
+
+That is the gap this component fills. It listens on the bus between the lock and
+the controller and turns what is already being said there into Home Assistant
+entities: door position, lock state, day mode, faults and the tamper alarm. No
+extra door sensor, no guessing whether a relay pulse actually did anything, and
+a fault is visible within about 15 seconds instead of not at all.
+
+It stays out of the way while doing it: the component only receives, and never
+drives the bus.
+
 ---
 
 ## Contents
 
+- [Why this exists](#why-this-exists)
 - [Entities](#entities)
 - [Wiring](#wiring)
 - [Installation](#installation)
@@ -348,20 +374,79 @@ holds `0x18` as its status, replacing the normal keep-alive:
 53.823 s  LOCK → 0x18
 ```
 
-Two things about this state are worth knowing, because they are the reason the
-`tamper` sensor is cleared the way it is:
+Three things about this state are worth knowing, because together they decide
+how the component reads it:
 
 * **It persists until the lock is commanded to unlock.** Closing the door does
-  not end it. `0x16` (action complete: unlocked) is the first message that
-  follows the unlock, so that is what clears the sensor.
-* **While it lasts, the lock reports neither the door opening nor the door
-  closing.** The only thing on the bus is `0x18`, repeated every ~14.9 s. So
-  during a tamper the `door` entity keeps whatever it had at `0x18`, which is
-  `Open`; do not read it as live door state until the tamper clears.
+  not end it, and neither does opening it again — no further door movement is
+  reported at all. The only thing on the bus is `0x18`, repeated every ~14.9 s.
+* **`0x02` and `0x06` arrive with it, and neither means what it usually means.**
+  The full burst is `0x02` → `0x18` → `0x06` within ~50 ms. That `0x06` is the
+  lock reporting that its bolts no longer engage anything, not that it has
+  unlocked — the door was forced, the lock is still locked.
+* **After the unlock, the door is reported differently.** For as long as the
+  door is still open the keep-alive is `0x06`, *not* `0x02`. Only once the door
+  is actually closed does `0x03` follow. If the door was already closed when the
+  unlock command arrived, `0x03` comes straight after.
 
-The practical consequence: treat `tamper` as a latched alarm, not as a live
-door-position signal. If you need to know whether the door is actually shut
-again during a tamper, this bus cannot tell you — a separate door contact can.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Controller
+    participant L as Lock
+
+    Note over C,L: every frame is acknowledged by the other party,<br/>omitted here for clarity
+    L->>C: 0x07 Door locked
+    Note over L: keep-alive every ~14.9 s
+
+    rect rgb(255, 235, 235)
+    Note over C,L: door is forced while locked
+    L->>C: 0x02 Door opened
+    L->>C: 0x18 Door opened while locked
+    L->>C: 0x06 Bolts retracted
+    Note right of L: all three within ~50 ms;<br/>0x06 does NOT mean unlocked
+    loop every ~14.9 s
+        L->>C: 0x18 Door opened while locked
+    end
+    Note over C,L: opening or closing the door again<br/>produces no message at all
+    end
+
+    C->>L: 0x17 / 0x11 / 0x12 unlock command
+    L->>C: 0x19 Command acknowledged
+    L->>C: 0x06 Bolts retracted
+    L->>C: 0x16 Action complete: unlocked
+    C->>L: echoes its own command
+    Note over L: tamper ends here
+
+    alt door still open
+        loop every ~14.9 s
+            L->>C: 0x06 Bolts retracted
+        end
+        L->>C: 0x03 Door closed
+    else door already closed
+        L->>C: 0x03 Door closed
+    end
+```
+
+### What the component does with it
+
+* `tamper` goes on at `0x18` and off at `0x16`.
+* **`0x06` does not unlock the lock while a tamper is active.** It cannot simply
+  be ignored either: in day mode and permanent open, `0x06` *is* the repeated
+  keep-alive, and therefore the only thing that would tell the component the
+  lock is unlocked after a reboot. So it is gated on the tamper rather than
+  dropped.
+* **`0x18` sets the lock state to locked.** The message is proof of it — that is
+  what makes it a tamper — which also settles the state after a reboot that
+  lands in the middle of one.
+* `0x02` does not unlock the lock either. A door can be opened while locked;
+  that is exactly what this section is about.
+
+The practical consequence for automations: treat `tamper` as a latched alarm,
+not as a live door signal. While it lasts, `door` keeps the value it had at
+`0x18`, which is `Open`, and the bus will not correct it. If you need to know
+whether the door is really shut during a tamper, this bus cannot tell you — a
+separate door contact can.
 
 ## Loop functions
 
@@ -446,10 +531,10 @@ and the original capture filenames are Dutch, so here is the mapping:
 
 | Code | Meaning | Effect |
 |---|---|---|
-| `0x02` | Door opened | door = Open, lock = Unlocked, day bolt out |
+| `0x02` | Door opened | door = Open, day bolt out. Does **not** unlock: a door can be opened while locked |
 | `0x03` | Door closed | door = Closed, lock = Unlocked, day bolt out |
 | `0x05` | Locking started | lock = Locking |
-| `0x06` | Bolts retracted | lock = Unlocked |
+| `0x06` | Bolts retracted | lock = Unlocked, **unless a tamper is active** |
 | `0x07` | Door locked | door = Closed, lock = Locked, day mode off |
 | `0x08` | Day bolt retracted | day bolt retracted |
 | `0x0D` | Fault / alarm | fault = on |
@@ -459,7 +544,7 @@ and the original capture filenames are Dutch, so here is the mapping:
 | `0x15` | Manually unlocked | lock = Unlocked |
 | `0x16` | Action complete: unlocked | lock = Unlocked, tamper = off; day bolt back out if the last command was `0x11` |
 | `0x17` | Cmd day mode on | day mode on |
-| `0x18` | Door opened while locked | door = Open, tamper = on |
+| `0x18` | Door opened while locked | door = Open, lock = Locked, tamper = on |
 | `0x10` `0x12` `0x14` `0x19` | — | no state change on their own |
 
 `fault` follows a rule rather than a table row: **any** message the lock sends

@@ -280,6 +280,74 @@ int main(int argc, char **argv) {
     }
   }
 
+  // Replay of the two real tamper logs: forcing a locked door must not make
+  // the lock look unlocked, even though the lock reports 0x06 right after.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    const uint8_t lead_in[] = {0x03, 0x13, 0x05, 0x0E, 0x07};
+    for (size_t i = 0; i < sizeof(lead_in); i++)
+      t.apply(lead_in[i]);
+    if (t.lock != fuhr::LOCK_LOCKED) {
+      printf("FAIL tamper lock: not locked before the tamper\n");
+      failures++;
+    }
+    const uint8_t forced[] = {0x02, 0x18, 0x06};
+    for (size_t i = 0; i < sizeof(forced); i++) {
+      t.apply(forced[i]);
+      if (t.lock != fuhr::LOCK_LOCKED) {
+        printf("FAIL tamper lock: 0x%02X made it %s, expected Locked\n",
+               forced[i], fuhr::StateTracker::lock_str(t.lock));
+        failures++;
+      }
+    }
+    for (int i = 0; i < 5; i++) {  // 0x18 repeated as the keep-alive
+      t.apply(0x18);
+      if (t.lock != fuhr::LOCK_LOCKED || t.tamper != fuhr::TRI_TRUE) {
+        printf("FAIL tamper lock: keep-alive changed it\n");
+        failures++;
+      }
+    }
+    // Unlock command. 0x06 in this sequence still arrives while the tamper is
+    // active; 0x16 is what ends both the tamper and the locked state.
+    t.apply(0x17);
+    t.apply(0x19);
+    t.apply(0x06);
+    if (t.lock != fuhr::LOCK_LOCKED) {
+      printf("FAIL tamper lock: 0x06 during the unlock released it early\n");
+      failures++;
+    }
+    t.apply(0x16);
+    if (t.lock != fuhr::LOCK_UNLOCKED || t.tamper != fuhr::TRI_FALSE) {
+      printf("FAIL tamper lock: 0x16 did not unlock (%s / %s)\n",
+             fuhr::StateTracker::lock_str(t.lock),
+             fuhr::StateTracker::tri_str(t.tamper));
+      failures++;
+    }
+    // Afterwards the keep-alive is 0x06 for as long as the door is open, and
+    // that must now be honoured again.
+    t.apply(0x06);
+    if (t.lock != fuhr::LOCK_UNLOCKED) {
+      printf("FAIL tamper lock: 0x06 ignored after the tamper cleared\n");
+      failures++;
+    }
+  }
+
+  // A reboot landing in the middle of a tamper: 0x18 alone settles the lock.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    t.apply(0x18);
+    if (t.lock != fuhr::LOCK_LOCKED || t.door != fuhr::DOOR_OPEN ||
+        t.tamper != fuhr::TRI_TRUE) {
+      printf("FAIL tamper boot: lock=%s door=%s tamper=%s\n",
+             fuhr::StateTracker::lock_str(t.lock),
+             fuhr::StateTracker::door_str(t.door),
+             fuhr::StateTracker::tri_str(t.tamper));
+      failures++;
+    }
+  }
+
   // Fault: raised by 0x0D, cleared by any other message from the lock, and
   // unknown until the bus has said something.
   {
