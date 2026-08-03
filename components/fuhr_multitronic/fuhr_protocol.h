@@ -324,7 +324,7 @@ struct StateTracker {
     switch (code) {
       case 0x02:  // door opened
         door = DOOR_OPEN;
-        if (lock == LOCK_LOCKED || lock == LOCK_UNKNOWN)
+        if (lock == LOCK_UNKNOWN) // update lock status, when door is opened lock is unlocked. 
           lock = LOCK_UNLOCKED;
         bolt_retracted_ = false;
         break;
