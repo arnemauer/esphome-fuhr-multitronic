@@ -339,10 +339,13 @@ struct StateTracker {
       case 0x06:  // bolts retracted
         // Not while a tamper is active. Forcing a locked door also produces
         // 0x06 - the bolts are no longer engaging anything - but the lock is
-        // still very much locked. 0x06 cannot simply be ignored either: in
-        // day mode and permanent open it is the repeated keep-alive, and
-        // therefore the only thing that tells us the lock is unlocked after
-        // a reboot.
+        // still very much locked.
+        //
+        // 0x06 cannot simply be ignored either. While the bolts are held
+        // retracted and the latch has not re-engaged - permanent open, or day
+        // mode before the door is first cycled - 0x06 is what the lock repeats
+        // every ~14.9 s, and nothing else is sent at all. It is then the only
+        // message that would tell us the lock is unlocked after a reboot.
         if (tamper != TRI_TRUE)
           lock = LOCK_UNLOCKED;
         break;

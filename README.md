@@ -339,6 +339,24 @@ intervals, spread 14.82–14.93 s). The controller falls back to a
 half missed keep-alives. The component's `timeout` option (default 30 s)
 drives the `connected` binary sensor on the same principle.
 
+**It repeats whatever its current condition is**, so the code you see depends
+on the state, not on some fixed heartbeat message. Across the 30 captures these
+codes turn up as the repeated status:
+
+| Code | Repeated while | Seen in |
+|---|---|---|
+| `0x07` Door locked | closed and locked — the normal resting state | 16 intervals |
+| `0x03` Door closed | day mode, after the door has been opened and closed at least once, so the latch is out again | 21 intervals |
+| `0x06` Bolts retracted | the bolts are held retracted and the latch has not re-engaged: permanent open, or day mode before the door is first cycled | 13 intervals |
+| `0x0D` Fault / alarm | blocked or faulted | 5 intervals |
+| `0x18` Door opened while locked | a tamper is active | 5 intervals |
+
+`0x06` is worth singling out, because it is easy to assume it is only ever a
+transient step in an unlock sequence. It is not: switch day mode on and leave
+the door alone, and `0x06` is all the lock says, every ~14.9 s, indefinitely.
+That is why the component may not simply ignore it — see
+[the tamper section](#what-the-component-does-with-it).
+
 ## Typical sequences
 
 **Unlock, open the door, close it, automatic relock.** Timings are from a real
@@ -447,10 +465,11 @@ sequenceDiagram
 
 * `tamper` goes on at `0x18` and off at `0x16`.
 * **`0x06` does not unlock the lock while a tamper is active.** It cannot simply
-  be ignored either: in day mode and permanent open, `0x06` *is* the repeated
-  keep-alive, and therefore the only thing that would tell the component the
-  lock is unlocked after a reboot. So it is gated on the tamper rather than
-  dropped.
+  be ignored either: while the bolts are held retracted and the latch has not
+  re-engaged, `0x06` is the repeated status and nothing else is sent at all, so
+  it would be the only thing telling the component the lock is unlocked after a
+  reboot. See [keep-alive](#keep-alive-and-timeout). It is therefore gated on
+  the tamper rather than dropped.
 * **`0x18` sets the lock state to locked.** The message is proof of it — that is
   what makes it a tamper — which also settles the state after a reboot that
   lands in the middle of one.
