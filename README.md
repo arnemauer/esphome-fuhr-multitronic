@@ -14,27 +14,42 @@ description is in [Protocol](#protocol) below.
 ## Why this exists
 
 The Fuhr controller can be driven from home automation — a relay across the
-right terminals unlocks the door — but it is a one-way street. **The controller
-reports nothing back.**
+right terminals unlocks the door — and it is not completely silent in return.
+It has two outputs. Neither of them, though, tells you what a home automation
+or alarm system actually wants to know.
 
-* **You cannot tell whether the command worked.** Switch the relay and you know
-  the controller was asked to unlock. Whether the lock actually unlocked, or
-  jammed, or reported a fault, never reaches you. The lock does say so: it sends
-  `0x0D` when it is blocked and `0x16` when the action completed. The controller
-  simply has no way to pass that on.
-* **You cannot tell whether the door is open or closed.** The controller has no
-  output for it, so a normal setup needs a separate door contact — even though
-  the controller is already being told, several times a minute, exactly what the
-  door is doing.
+| Terminals | Fuhr's description | What it gives you |
+|---|---|---|
+| 3 + 4 | Swing door drive, **make contact** | A one-second pulse once the lock has opened, meant to start a door operator. A trigger, not a status. (With the DRT jumper removed it instead follows the continuous signal on 9 + 10.) |
+| 5 + 6 | Alarm output, **break contact**, "output door leaf position" | A single bit that is only *secure* when the door leaf is closed **and** the lock is locked. Opening the door or unlocking the lock breaks it within a second. |
+
+Three things the lock knows and says on the bus never make it out through those
+two contacts:
+
+* **Whether a command actually worked.** Switch the relay and you know the
+  controller was asked to unlock. If the lock jams, terminals 5 + 6 stay exactly
+  as they were — indistinguishable from never having asked. The lock reports it
+  (`0x0D` when blocked, `0x16` when the action completed); nothing carries it
+  out of the controller.
+* **Whether the door was forced.** Forcing a locked door does break contact
+  5 + 6 — but so does a perfectly normal unlock. One bit cannot tell an intruder
+  from the postman. The lock distinguishes them clearly: `0x18` versus `0x16`.
+* **Door position on its own.** 5 + 6 conflates door leaf and lock state, so
+  *not secure* might mean an open door, an unlocked lock, or both. To get door
+  state by itself you fit a second door contact — even though the lock is
+  already announcing it several times a minute as `0x02` and `0x03`.
 
 That is the gap this component fills. It listens on the bus between the lock and
-the controller and turns what is already being said there into Home Assistant
-entities: door position, lock state, day mode, faults and the tamper alarm. No
-extra door sensor, no guessing whether a relay pulse actually did anything, and
-a fault is visible within about 15 seconds instead of not at all.
+the controller and turns what is already being said there into separate Home
+Assistant entities: door position, lock state, day mode, faults and a tamper
+alarm that is actually distinguishable from a normal opening.
 
 It stays out of the way while doing it: the component only receives, and never
 drives the bus.
+
+> Terminal descriptions quoted from the FUHR multitronic 881 manual, chapter
+> 6.1. Terminal numbering may differ on other controller variants — check your
+> own wiring diagram.
 
 ---
 
