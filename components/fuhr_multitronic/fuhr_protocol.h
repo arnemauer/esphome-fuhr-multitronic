@@ -284,7 +284,8 @@ enum DayMode : uint8_t {
   DAY_ON_BOLT_RETRACTED,
   DAY_ON_BOLT_OUT,
 };
-enum ErrorState : uint8_t { ERR_UNKNOWN = 0, ERR_NONE, ERR_FAULT, ERR_ALARM };
+// Tri-state, so an entity can stay unpublished until the bus tells us.
+enum Tri : uint8_t { TRI_UNKNOWN = 0, TRI_FALSE, TRI_TRUE };
 
 // Derives the four status values from the message stream.
 //
@@ -294,13 +295,15 @@ struct StateTracker {
   DoorState door{DOOR_UNKNOWN};
   LockState lock{LOCK_UNKNOWN};
   DayMode day{DAY_UNKNOWN};
-  ErrorState error{ERR_UNKNOWN};
+  Tri fault{TRI_UNKNOWN};   // 0x0D
+  Tri tamper{TRI_UNKNOWN};  // 0x18
 
   void reset() {
     door = DOOR_UNKNOWN;
     lock = LOCK_UNKNOWN;
     day = DAY_UNKNOWN;
-    error = ERR_UNKNOWN;
+    fault = TRI_UNKNOWN;
+    tamper = TRI_UNKNOWN;
     day_active_ = false;
     day_known_ = false;
     bolt_retracted_ = false;
@@ -310,6 +313,14 @@ struct StateTracker {
   void apply(uint8_t code) {
     if (message_sender(code) == SENDER_CTRL)
       last_command_ = code;
+
+    // Any message the lock sends other than 0x0D means it is running
+    // normally, so the fault resolves on the next ordinary status. This is
+    // also what lifts the entity out of "unknown" shortly after boot: the
+    // lock repeats its status every ~15 s.
+    if (message_sender(code) == SENDER_LOCK)
+      fault = (code == 0x0D) ? TRI_TRUE : TRI_FALSE;
+
     switch (code) {
       case 0x02:  // door opened
         door = DOOR_OPEN;
@@ -321,7 +332,6 @@ struct StateTracker {
         door = DOOR_CLOSED;
         lock = LOCK_UNLOCKED;
         bolt_retracted_ = false;
-        clear_error_();
         break;
       case 0x05:  // locking started
         lock = LOCK_LOCKING;
@@ -335,7 +345,6 @@ struct StateTracker {
         day_active_ = false;
         day_known_ = true;
         bolt_retracted_ = false;
-        clear_error_();
         break;
       case 0x08:  // day bolt retracted
         bolt_retracted_ = true;
@@ -344,8 +353,7 @@ struct StateTracker {
         day_active_ = true;
         day_known_ = true;
         break;
-      case 0x0D:  // fault / blocked
-        error = ERR_FAULT;
+      case 0x0D:  // fault / blocked - handled by the rule above
         break;
       case 0x0E:  // locking finished
         lock = LOCK_LOCKED;
@@ -368,7 +376,11 @@ struct StateTracker {
         // the 0x11 variant.
         if (last_command_ == 0x11)
           bolt_retracted_ = false;
-        clear_error_();
+        // The tamper state has no status message of its own to end it: while
+        // it lasts the lock reports neither the door opening nor closing. It
+        // is only lifted once the lock is commanded to unlock, and 0x16 is
+        // what reports that having completed.
+        tamper = TRI_FALSE;
         break;
       case 0x17:  // cmd day mode on
         day_active_ = true;
@@ -376,7 +388,7 @@ struct StateTracker {
         break;
       case 0x18:  // door opened while locked
         door = DOOR_OPEN;
-        error = ERR_ALARM;
+        tamper = TRI_TRUE;
         break;
       default:
         break;  // 0x10, 0x12, 0x14, 0x19 carry no state by themselves
@@ -412,20 +424,15 @@ struct StateTracker {
       default: return "Unknown";
     }
   }
-  static const char *error_str(ErrorState s) {
+  static const char *tri_str(Tri s) {
     switch (s) {
-      case ERR_NONE: return "None";
-      case ERR_FAULT: return "Fault / blocked";
-      case ERR_ALARM: return "Alarm: door opened while locked";
+      case TRI_TRUE: return "Yes";
+      case TRI_FALSE: return "No";
       default: return "Unknown";
     }
   }
 
  protected:
-  void clear_error_() {
-    if (error != ERR_NONE)
-      error = ERR_NONE;
-  }
   bool day_active_{false};
   bool day_known_{false};
   bool bolt_retracted_{false};

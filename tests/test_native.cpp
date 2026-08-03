@@ -193,11 +193,11 @@ int main(int argc, char **argv) {
     }
   }
   if (st.lock != fuhr::LOCK_LOCKED || st.door != fuhr::DOOR_CLOSED ||
-      st.error != fuhr::ERR_NONE) {
-    printf("FAIL state: end state lock=%s door=%s error=%s\n",
+      st.fault != fuhr::TRI_FALSE) {
+    printf("FAIL state: end state lock=%s door=%s fault=%s\n",
            fuhr::StateTracker::lock_str(st.lock),
            fuhr::StateTracker::door_str(st.door),
-           fuhr::StateTracker::error_str(st.error));
+           fuhr::StateTracker::tri_str(st.fault));
     failures++;
   }
 
@@ -252,26 +252,67 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Forcing the door while locked must raise the alarm and keep it raised
-  // while 0x18 is repeated as the keep-alive.
+  // Tamper: raised by 0x18 and cleared only by 0x16. The real capture sends
+  // 0x06 straight after 0x18 and then repeats 0x18 as the keep-alive, so
+  // neither of those may clear it.
   {
     fuhr::StateTracker t;
     t.reset();
-    const uint8_t seq3[] = {0x07, 0x02, 0x18, 0x06, 0x18, 0x18};
-    for (size_t i = 0; i < sizeof(seq3); i++)
-      t.apply(seq3[i]);
-    if (t.error != fuhr::ERR_ALARM || t.door != fuhr::DOOR_OPEN) {
-      printf("FAIL alarm state: error=%s door=%s\n",
-             fuhr::StateTracker::error_str(t.error),
-             fuhr::StateTracker::door_str(t.door));
+    if (t.tamper != fuhr::TRI_UNKNOWN) {
+      printf("FAIL tamper: not unknown at reset\n");
       failures++;
     }
-    t.apply(0x03);  // door closed again
-    if (t.error != fuhr::ERR_NONE || t.door != fuhr::DOOR_CLOSED) {
-      printf("FAIL alarm clear: error=%s door=%s\n",
-             fuhr::StateTracker::error_str(t.error),
-             fuhr::StateTracker::door_str(t.door));
+    const uint8_t seq3[] = {0x07, 0x02, 0x18, 0x06, 0x18, 0x18, 0x03, 0x07};
+    for (size_t i = 0; i < sizeof(seq3); i++) {
+      t.apply(seq3[i]);
+      bool want = i >= 2;  // everything from 0x18 onwards
+      if ((t.tamper == fuhr::TRI_TRUE) != want) {
+        printf("FAIL tamper: after 0x%02X tamper=%s expected %s\n", seq3[i],
+               fuhr::StateTracker::tri_str(t.tamper), want ? "Yes" : "No");
+        failures++;
+      }
+    }
+    t.apply(0x16);  // lock commanded to unlock, action complete
+    if (t.tamper != fuhr::TRI_FALSE) {
+      printf("FAIL tamper: 0x16 did not clear it (%s)\n",
+             fuhr::StateTracker::tri_str(t.tamper));
       failures++;
+    }
+  }
+
+  // Fault: raised by 0x0D, cleared by any other message from the lock, and
+  // unknown until the bus has said something.
+  {
+    fuhr::StateTracker t;
+    t.reset();
+    if (t.fault != fuhr::TRI_UNKNOWN) {
+      printf("FAIL fault: not unknown at reset\n");
+      failures++;
+    }
+    t.apply(0x17);  // a controller command must not resolve it
+    if (t.fault != fuhr::TRI_UNKNOWN) {
+      printf("FAIL fault: controller command resolved it\n");
+      failures++;
+    }
+    t.apply(0x0D);
+    if (t.fault != fuhr::TRI_TRUE) {
+      printf("FAIL fault: 0x0D did not raise it\n");
+      failures++;
+    }
+    t.apply(0x0D);  // repeated as keep-alive
+    if (t.fault != fuhr::TRI_TRUE) {
+      printf("FAIL fault: repeat cleared it\n");
+      failures++;
+    }
+    const uint8_t clears[] = {0x02, 0x03, 0x05, 0x06, 0x07, 0x08, 0x0E, 0x16, 0x19};
+    for (size_t i = 0; i < sizeof(clears); i++) {
+      t.reset();
+      t.apply(0x0D);
+      t.apply(clears[i]);
+      if (t.fault != fuhr::TRI_FALSE) {
+        printf("FAIL fault: 0x%02X did not clear it\n", clears[i]);
+        failures++;
+      }
     }
   }
 

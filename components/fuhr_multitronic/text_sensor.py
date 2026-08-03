@@ -11,7 +11,6 @@ CONF_MESSAGE = "message"
 CONF_DOOR = "door"
 CONF_LOCK = "lock"
 CONF_DAY_MODE = "day_mode"
-CONF_ERROR = "error"
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -25,9 +24,6 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_DAY_MODE): text_sensor.text_sensor_schema(
             icon="mdi:weather-sunny"
         ),
-        cv.Optional(CONF_ERROR): text_sensor.text_sensor_schema(
-            icon="mdi:alert-circle-outline"
-        ),
     }
 )
 
@@ -36,7 +32,6 @@ SETTERS = {
     CONF_DOOR: "set_door_sensor",
     CONF_LOCK: "set_lock_sensor",
     CONF_DAY_MODE: "set_day_mode_sensor",
-    CONF_ERROR: "set_error_sensor",
 }
 
 

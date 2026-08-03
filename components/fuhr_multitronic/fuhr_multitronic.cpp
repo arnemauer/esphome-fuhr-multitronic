@@ -137,14 +137,23 @@ void FuhrMultitronic::publish_states_() {
     this->lock_sensor_->publish_state(fuhr::StateTracker::lock_str(this->state_.lock));
   if (this->day_mode_sensor_ != nullptr && (first || this->state_.day != this->last_day_))
     this->day_mode_sensor_->publish_state(fuhr::StateTracker::day_str(this->state_.day));
-  if (this->error_sensor_ != nullptr && (first || this->state_.error != this->last_error_))
-    this->error_sensor_->publish_state(fuhr::StateTracker::error_str(this->state_.error));
   this->published_once_ = true;
+#endif
+#ifdef USE_BINARY_SENSOR
+  // Only published once the bus has actually told us; before that the
+  // entity stays unknown rather than claiming "no fault".
+  if (this->fault_sensor_ != nullptr && this->state_.fault != fuhr::TRI_UNKNOWN &&
+      this->state_.fault != this->last_fault_)
+    this->fault_sensor_->publish_state(this->state_.fault == fuhr::TRI_TRUE);
+  if (this->tamper_sensor_ != nullptr && this->state_.tamper != fuhr::TRI_UNKNOWN &&
+      this->state_.tamper != this->last_tamper_)
+    this->tamper_sensor_->publish_state(this->state_.tamper == fuhr::TRI_TRUE);
 #endif
   this->last_door_ = this->state_.door;
   this->last_lock_ = this->state_.lock;
   this->last_day_ = this->state_.day;
-  this->last_error_ = this->state_.error;
+  this->last_fault_ = this->state_.fault;
+  this->last_tamper_ = this->state_.tamper;
 }
 
 void FuhrMultitronic::dump_config() {
@@ -164,10 +173,11 @@ void FuhrMultitronic::dump_config() {
   LOG_TEXT_SENSOR("  ", "Door", this->door_sensor_);
   LOG_TEXT_SENSOR("  ", "Lock", this->lock_sensor_);
   LOG_TEXT_SENSOR("  ", "Day mode", this->day_mode_sensor_);
-  LOG_TEXT_SENSOR("  ", "Error", this->error_sensor_);
 #endif
 #ifdef USE_BINARY_SENSOR
   LOG_BINARY_SENSOR("  ", "Connected", this->connected_sensor_);
+  LOG_BINARY_SENSOR("  ", "Fault", this->fault_sensor_);
+  LOG_BINARY_SENSOR("  ", "Tamper alarm", this->tamper_sensor_);
 #endif
 }
 

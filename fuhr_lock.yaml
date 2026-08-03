@@ -77,18 +77,20 @@ text_sensor:
     day_mode:
       name: "Day mode"
       id: day_mode_status
-    error:
-      name: "Lock fault"
-      id: lock_fault
 
 binary_sensor:
   - platform: fuhr_multitronic
     fuhr_multitronic_id: lock_bus
     connected:
       name: "Lock connection"
+    fault:
+      name: "Lock fault"
+    tamper:
+      name: "Lock tamper alarm"
 
-  # Home Assistant works better with proper device classes for the two
-  # genuinely binary states, so mirror them:
+  # Door and lock are the two states the component reports as text but that
+  # Home Assistant prefers as binary with a device class, so mirror them.
+  # Fault and tamper are already binary above.
   - platform: template
     name: "Door"
     device_class: door
@@ -99,7 +101,7 @@ binary_sensor:
       return {};
 
   - platform: template
-    name: "Lock"
+    name: "Unlocked"
     device_class: lock   # on = unlocked
     lambda: |-
       auto s = id(lock_status).state;
@@ -107,10 +109,3 @@ binary_sensor:
       if (s == "Unknown") return {};
       return true;
 
-  - platform: template
-    name: "Lock problem"
-    device_class: problem
-    lambda: |-
-      auto s = id(lock_fault).state;
-      if (s == "Unknown") return {};
-      return s != "None";

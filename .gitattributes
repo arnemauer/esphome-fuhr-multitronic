@@ -1,0 +1,8 @@
+# Keep everything LF in the repository, whatever the checkout platform does.
+# Without this a Windows checkout turns the test fixtures into CRLF and every
+# one of them shows up as modified on the next commit.
+* text=auto eol=lf
+
+# Binary
+*.png binary
+*.jpg binary

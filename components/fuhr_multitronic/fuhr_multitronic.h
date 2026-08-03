@@ -42,10 +42,11 @@ class FuhrMultitronic : public Component {
   void set_door_sensor(text_sensor::TextSensor *s) { this->door_sensor_ = s; }
   void set_lock_sensor(text_sensor::TextSensor *s) { this->lock_sensor_ = s; }
   void set_day_mode_sensor(text_sensor::TextSensor *s) { this->day_mode_sensor_ = s; }
-  void set_error_sensor(text_sensor::TextSensor *s) { this->error_sensor_ = s; }
 #endif
 #ifdef USE_BINARY_SENSOR
   void set_connected_sensor(binary_sensor::BinarySensor *s) { this->connected_sensor_ = s; }
+  void set_fault_sensor(binary_sensor::BinarySensor *s) { this->fault_sensor_ = s; }
+  void set_tamper_sensor(binary_sensor::BinarySensor *s) { this->tamper_sensor_ = s; }
 #endif
 
   void add_message_callback(std::function<void(uint8_t, std::string, bool)> &&cb) {
@@ -95,7 +96,8 @@ class FuhrMultitronic : public Component {
   fuhr::DoorState last_door_{fuhr::DOOR_UNKNOWN};
   fuhr::LockState last_lock_{fuhr::LOCK_UNKNOWN};
   fuhr::DayMode last_day_{fuhr::DAY_UNKNOWN};
-  fuhr::ErrorState last_error_{fuhr::ERR_UNKNOWN};
+  fuhr::Tri last_fault_{fuhr::TRI_UNKNOWN};
+  fuhr::Tri last_tamper_{fuhr::TRI_UNKNOWN};
   bool published_once_{false};
 
   CallbackManager<void(uint8_t, std::string, bool)> message_callback_;
@@ -105,10 +107,11 @@ class FuhrMultitronic : public Component {
   text_sensor::TextSensor *door_sensor_{nullptr};
   text_sensor::TextSensor *lock_sensor_{nullptr};
   text_sensor::TextSensor *day_mode_sensor_{nullptr};
-  text_sensor::TextSensor *error_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
   binary_sensor::BinarySensor *connected_sensor_{nullptr};
+  binary_sensor::BinarySensor *fault_sensor_{nullptr};
+  binary_sensor::BinarySensor *tamper_sensor_{nullptr};
 #endif
 };
 

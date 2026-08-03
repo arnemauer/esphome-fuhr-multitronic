@@ -31,6 +31,7 @@ description is in [Protocol](#protocol) below.
   - [Command handshake](#command-handshake)
   - [Keep-alive and timeout](#keep-alive-and-timeout)
   - [Typical sequences](#typical-sequences)
+  - [The tamper state](#the-tamper-state-ends-only-on-an-unlock-command)
   - [Loop functions](#loop-functions)
 - [Terminology](#terminology)
 - [How the states are derived](#how-the-states-are-derived)
@@ -48,12 +49,13 @@ description is in [Protocol](#protocol) below.
 | `door` | text_sensor | `Open` · `Closed` · `Unknown` |
 | `lock` | text_sensor | `Locked` · `Unlocked` · `Locking` · `Unknown` |
 | `day_mode` | text_sensor | `Off` · `On, day bolt retracted` · `On, day bolt out` · `Unknown` |
-| `error` | text_sensor | `None` · `Fault / blocked` · `Alarm: door opened while locked` · `Unknown` |
 | `connected` | binary_sensor | connectivity: off when no message has arrived within `timeout` |
+| `fault` | binary_sensor | problem: on at `0x0D`, off at any other message from the lock |
+| `tamper` | binary_sensor | tamper: on at `0x18`, off at `0x16` — see [below](#the-tamper-state-ends-only-on-an-unlock-command) |
 
-Everything starts at `Unknown` after a reboot and fills in as messages
-arrive. The lock repeats its status every ~15 s, so door, lock and error state
-are correct within about 15 seconds of boot. `day_mode` needs a `0x17`/`0x13`
+Everything starts unknown after a reboot and fills in as messages arrive. The
+lock repeats its status every ~15 s, so door, lock and fault state are correct
+within about 15 seconds of boot. `day_mode` needs a `0x17`/`0x13`
 command or a lock cycle before it is known — see
 [Caveats](#caveats-and-open-questions).
 
@@ -104,12 +106,13 @@ text_sensor:
     door: {name: "Door status"}
     lock: {name: "Lock status"}
     day_mode: {name: "Day mode"}
-    error: {name: "Lock fault"}
 
 binary_sensor:
   - platform: fuhr_multitronic
     fuhr_multitronic_id: lock_bus
     connected: {name: "Lock connection"}
+    fault: {name: "Lock fault"}
+    tamper: {name: "Lock tamper alarm"}
 ```
 
 ### `on_message` trigger
@@ -124,9 +127,9 @@ fuhr_multitronic:
         if (code == 0x18) ESP_LOGW("lock", "Tamper alarm!");
 ```
 
-[`fuhr_lock.yaml`](fuhr_lock.yaml) is a complete working configuration, including
-template binary sensors with proper Home Assistant device classes (`door`,
-`lock`, `problem`) derived from the text sensors.
+[`fuhr_lock.yaml`](fuhr_lock.yaml) is a complete working configuration. It also
+adds template binary sensors that mirror `door` and `lock` with the matching
+Home Assistant device classes; `fault` and `tamper` are already binary.
 
 ---
 
@@ -267,7 +270,7 @@ handshake. Direction is fixed per code.
 | `0x0E` | `55A99969` | Locking finished, bolts thrown |
 | `0x15` | `56669965` | Lock opened manually (key or handle) |
 | `0x16` | `5669955A` | Action complete — lock unlocked |
-| `0x18` | `56955966` | Door opened while locked — tamper alarm, persists until the door is closed |
+| `0x18` | `56955966` | Door opened while locked — tamper alarm, persists until the lock is commanded to unlock |
 | `0x19` | `56965A95` | Command acknowledged |
 
 ## Command handshake
@@ -330,6 +333,8 @@ Two timings are strikingly consistent across every capture: the motor takes
    ...   LOCK → 0x06  repeated every ~14.9 s
 ```
 
+### The tamper state ends only on an unlock command
+
 **Forcing the door while it is locked** — the lock reports the tamper and then
 holds `0x18` as its status, replacing the normal keep-alive:
 
@@ -342,6 +347,21 @@ holds `0x18` as its status, replacing the normal keep-alive:
 38.894 s  LOCK → 0x18
 53.823 s  LOCK → 0x18
 ```
+
+Two things about this state are worth knowing, because they are the reason the
+`tamper` sensor is cleared the way it is:
+
+* **It persists until the lock is commanded to unlock.** Closing the door does
+  not end it. `0x16` (action complete: unlocked) is the first message that
+  follows the unlock, so that is what clears the sensor.
+* **While it lasts, the lock reports neither the door opening nor the door
+  closing.** The only thing on the bus is `0x18`, repeated every ~14.9 s. So
+  during a tamper the `door` entity keeps whatever it had at `0x18`, which is
+  `Open`; do not read it as live door state until the tamper clears.
+
+The practical consequence: treat `tamper` as a latched alarm, not as a live
+door-position signal. If you need to know whether the door is actually shut
+again during a tamper, this bus cannot tell you — a separate door contact can.
 
 ## Loop functions
 
@@ -427,20 +447,25 @@ and the original capture filenames are Dutch, so here is the mapping:
 | Code | Meaning | Effect |
 |---|---|---|
 | `0x02` | Door opened | door = Open, lock = Unlocked, day bolt out |
-| `0x03` | Door closed | door = Closed, lock = Unlocked, day bolt out, error cleared |
+| `0x03` | Door closed | door = Closed, lock = Unlocked, day bolt out |
 | `0x05` | Locking started | lock = Locking |
 | `0x06` | Bolts retracted | lock = Unlocked |
-| `0x07` | Door locked | door = Closed, lock = Locked, day mode off, error cleared |
+| `0x07` | Door locked | door = Closed, lock = Locked, day mode off |
 | `0x08` | Day bolt retracted | day bolt retracted |
-| `0x0D` | Fault / alarm | error = Fault / blocked |
+| `0x0D` | Fault / alarm | fault = on |
 | `0x0E` | Locking finished | lock = Locked, day mode off |
 | `0x11` | Cmd day mode on (TGF) | day mode on |
 | `0x13` | Cmd day mode off | day mode off |
 | `0x15` | Manually unlocked | lock = Unlocked |
-| `0x16` | Action complete: unlocked | lock = Unlocked, error cleared; day bolt back out if the last command was `0x11` |
+| `0x16` | Action complete: unlocked | lock = Unlocked, tamper = off; day bolt back out if the last command was `0x11` |
 | `0x17` | Cmd day mode on | day mode on |
-| `0x18` | Door opened while locked | door = Open, error = Alarm |
+| `0x18` | Door opened while locked | door = Open, tamper = on |
 | `0x10` `0x12` `0x14` `0x19` | — | no state change on their own |
+
+`fault` follows a rule rather than a table row: **any** message the lock sends
+other than `0x0D` clears it. That is also what lifts it out of unknown shortly
+after boot, since the lock repeats its status every ~15 s. Controller commands
+never resolve it — the controller has no idea whether the lock is blocked.
 
 Frames that fail the CRC never update the state. They are logged as a warning
 and published to `message` as `ERROR 0x..`.
