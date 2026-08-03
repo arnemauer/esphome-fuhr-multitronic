@@ -95,9 +95,10 @@ drives the bus.
 | `tamper` | binary_sensor | tamper: on at `0x18`, off at `0x16` — see [below](#the-tamper-state-ends-only-on-an-unlock-command) |
 
 Everything starts unknown after a reboot and fills in as messages arrive. The
-lock repeats its status every ~15 s, so door, lock and fault state are correct
-within about 15 seconds of boot. `day_mode` needs a `0x17`/`0x13`
-command or a lock cycle before it is known — see
+lock repeats its status every ~15 s, so `lock` and `fault` are correct within
+about 15 seconds of boot. `door` and `day_mode` can take longer: if the lock is
+sitting in a repeated `0x06`, neither the door position nor the day mode can be
+read from it, and the component does not guess. See
 [Caveats](#caveats-and-open-questions).
 
 ## Wiring
@@ -351,11 +352,28 @@ codes turn up as the repeated status:
 | `0x0D` Fault / alarm | blocked or faulted | 5 intervals |
 | `0x18` Door opened while locked | a tamper is active | 5 intervals |
 
-`0x06` is worth singling out, because it is easy to assume it is only ever a
-transient step in an unlock sequence. It is not: switch day mode on and leave
-the door alone, and `0x06` is all the lock says, every ~14.9 s, indefinitely.
-That is why the component may not simply ignore it — see
-[the tamper section](#what-the-component-does-with-it).
+`0x06` is worth singling out twice over.
+
+First, it is easy to assume it is only ever a transient step in an unlock
+sequence. It is not: switch day mode on and leave the door alone, and `0x06` is
+all the lock says, every ~14.9 s, indefinitely. That is why the component may
+not simply ignore it — see [the tamper section](#what-the-component-does-with-it).
+
+Second, **`0x06` says nothing about the door**. The same repeated code occurs
+with the door closed and with the door open:
+
+```
+door closed   0x07 → C 0x12 → 0x19 → 0x06 → 0x08 → 0x16 → 0x06 0x06 0x06 → C 0x14 → 0x05 …
+              (permanent open, door never touched: it was locked, so closed)
+
+door open     … 0x18 0x18 → C 0x17 → 0x19 → 0x06 → 0x16 → 0x06 0x06 … → 0x03
+              (after a tamper, unlocked with the door standing open;
+               0x03 only arrives when the door is actually shut)
+```
+
+So a lone `0x06` cannot be turned into a door position, and the component does
+not try: it leaves `door` alone. See
+[Caveats](#caveats-and-open-questions) for what that means after a reboot.
 
 ## Typical sequences
 
@@ -605,6 +623,15 @@ and published to `message` as `ERROR 0x..`.
   reports *On, day bolt retracted* between `0x08` and `0x16`,
   then *On, day bolt out*. That matches the observed ~5 s behaviour closely but is
   derived from `0x16`, not from a dedicated message.
+* **After a reboot into a steady `0x06`, the door state stays unknown.** `0x06`
+  is sent both with the door closed (permanent open, or day mode nobody has
+  used yet) and with the door open (after a tamper, once the lock is
+  unlocked). Nothing in the message distinguishes them, and after a reboot
+  there is no history to fall back on either. `door` therefore stays `Unknown`
+  until something conclusive arrives — `0x02`/`0x18` for open, `0x03`/`0x07`
+  for closed — which in practice means until somebody uses the door. It is a
+  deliberate choice: a guess here would be wrong roughly whenever it matters
+  most.
 * **Unknown codes are logged, not guessed.** Any code outside the table is
   published as `Unknown code` and leaves the state untouched.
 
