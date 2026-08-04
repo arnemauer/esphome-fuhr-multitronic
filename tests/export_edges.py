@@ -60,9 +60,9 @@ TEST_NAMES = {
         'day_mode_on_fault_door_not_unlocked',
     '30-12 dagstand inschakelen , storing deur niet van slot 2':
         'day_mode_on_fault_door_not_unlocked_2',
-    # Note: despite its filename this capture carries command 0x13 (day mode
-    # OFF). See item 4 in TODO.md - the name is translated as recorded.
-    '30-12 dagstand inschakelen , storing deur niet van slot, deur openen':
+    # This capture was originally named "dagstand inschakelen"; it carries
+    # command 0x13 (day mode OFF), so the file was renamed to match.
+    '30-12 dagstand uitschakelen , storing deur niet van slot, deur openen':
         'day_mode_off_fault_door_not_unlocked_then_door_opened',
     '30-12 dagstand inschakelen, even later motorstoring - alarm klopt niet....':
         'day_mode_on_then_motor_fault_alarm_incorrect',
