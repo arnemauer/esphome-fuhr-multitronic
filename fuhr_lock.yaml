@@ -46,15 +46,17 @@ fuhr_multitronic:
     number: GPIO16
     mode:
       input: true
-    # Set inverted: true if your level shifter inverts the signal. The bus
-    # must idle low at the GPIO and go high for the start bit.
-    inverted: false
+    # The opto-coupler interface in docs/wiring.svg inverts: the GPIO idles
+    # high and is pulled low while the bus is driven high. Set this to false
+    # if your interface does not invert.
+    inverted: true
   # Optional. Wired to the line that is asserted while the controller talks.
   # Leave it out and the direction is derived from the message code instead.
   ctrl_pin:
     number: GPIO17
     mode:
       input: true
+    inverted: true
   baud_rate: 2000
   # Three missed keep-alives. See "Supervision" in README.md - and note
   # that Home Assistant must also alarm on the entity going unavailable,

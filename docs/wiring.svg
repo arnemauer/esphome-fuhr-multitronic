@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 1010" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="1140" height="1010" fill="#ffffff"/>
+<text x="34.0" y="34.0" font-size="17" fill="#1f2328" text-anchor="start" font-weight="600">Tapping the Fuhr multitronic bus without loading it</text>
+<text x="34.0" y="55.0" font-size="12" fill="#57606a" text-anchor="start">The bus sees a 147 k divider and nothing else — about 80 uA. The LED current comes from the lock supply, so the signal line is never the source.</text>
+<line x1="566.0" y1="84.0" x2="566.0" y2="922.0" stroke="#8250df" stroke-width="1.4" stroke-dasharray="7 5" stroke-linecap="round"/>
+<text transform="translate(558,500) rotate(-90)" font-size="11" fill="#8250df" text-anchor="middle" font-weight="600">galvanic isolation — grounds stay separate</text>
+<text x="34.0" y="104.0" font-size="12" fill="#57606a" text-anchor="start" font-weight="600">LOCK SIDE — 12 V domain</text>
+<text x="706.0" y="104.0" font-size="12" fill="#1a7f37" text-anchor="start" font-weight="600">ESP SIDE — 3.3 V domain, its own supply</text>
+<text x="96.0" y="364.0" font-size="12" fill="#0969da" text-anchor="end" font-weight="600">Bus</text>
+<line x1="104.0" y1="360.0" x2="150.0" y2="360.0" stroke="#0969da" stroke-width="2.4" stroke-linecap="round"/>
+<circle cx="150.0" cy="360.0" r="3.4" fill="#0969da"/>
+<line x1="150.0" y1="360.0" x2="176.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="185.0" y="348.0" width="54" height="24" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="212.0" y="341.0" font-size="11" fill="#57606a" text-anchor="middle">R1</text>
+<text x="212.0" y="387.0" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">100k</text>
+<line x1="248.0" y1="360.0" x2="320.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="320.0" cy="360.0" r="3.4" fill="#1f2328"/>
+<line x1="320.0" y1="360.0" x2="320.0" y2="384.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="308.0" y="384.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="339.0" y="409.0" font-size="11" fill="#57606a" text-anchor="start">R2</text>
+<text x="339.0" y="424.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">47k</text>
+<line x1="320.0" y1="438.0" x2="320.0" y2="456.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="320.0" y1="442.0" x2="320.0" y2="456.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="311.0" y1="456.0" x2="329.0" y2="456.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="314.5" y1="461.0" x2="325.5" y2="461.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="317.5" y1="466.0" x2="322.5" y2="466.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<text x="320.0" y="486.0" font-size="10" fill="#57606a" text-anchor="middle">lock GND</text>
+<line x1="320.0" y1="360.0" x2="400.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="440.0" y1="360.0" x2="463.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="463.0" y1="342.0" x2="463.0" y2="378.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="471.0" y1="341.0" x2="471.0" y2="353.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="354.0" x2="471.0" y2="366.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="367.0" x2="471.0" y2="379.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="342.0" x2="480.0" y2="342.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="342.0" x2="480.0" y2="312.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="378.0" x2="480.0" y2="378.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="378.0" x2="480.0" y2="408.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="360.0" x2="480.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M474.0,355.0 L481.0,360.0 L474.0,365.0" fill="#1f2328" stroke="#1f2328" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="492.0" y="334.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">Q1</text>
+<text x="492.0" y="348.0" font-size="10" fill="#57606a" text-anchor="start">2N7000</text>
+<text x="436.0" y="352.0" font-size="10" fill="#57606a" text-anchor="end">G</text>
+<text x="486.0" y="316.0" font-size="10" fill="#57606a" text-anchor="start">D</text>
+<text x="486.0" y="406.0" font-size="10" fill="#57606a" text-anchor="start">S</text>
+<line x1="480.0" y1="408.0" x2="480.0" y2="456.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="442.0" x2="480.0" y2="456.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="456.0" x2="489.0" y2="456.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="474.5" y1="461.0" x2="485.5" y2="461.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="477.5" y1="466.0" x2="482.5" y2="466.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<text x="480.0" y="486.0" font-size="10" fill="#57606a" text-anchor="middle">lock GND</text>
+<line x1="480.0" y1="120.0" x2="480.0" y2="136.0" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round"/>
+<path d="M474.0,127.0 L480.0,120.0 L486.0,127.0" fill="none" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="480.0" y="113.0" font-size="11" fill="#cf222e" text-anchor="middle" font-weight="600">+12 V (lock)</text>
+<line x1="480.0" y1="136.0" x2="480.0" y2="155.0" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round"/>
+<rect x="468.0" y="155.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="499.0" y="180.0" font-size="11" fill="#57606a" text-anchor="start">R3</text>
+<text x="499.0" y="195.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">3k3</text>
+<line x1="480.0" y1="209.0" x2="480.0" y2="214.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="418.0" y="208.0" width="268.0" height="134.0" fill="none" stroke="#8250df" stroke-width="1.4" stroke-dasharray="5 4" rx="7"/>
+<text x="426.0" y="226.0" font-size="11" fill="#8250df" text-anchor="start" font-weight="600">U1</text>
+<text x="426.0" y="240.0" font-size="10" fill="#57606a" text-anchor="start">PC817</text>
+<path d="M467.0,256.0 L493.0,256.0 L480.0,294.0 L467.0,256.0" fill="none" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="466.0" y1="294.0" x2="494.0" y2="294.0" stroke="#1f2328" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="480.0" y1="214.0" x2="480.0" y2="256.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="294.0" x2="480.0" y2="336.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M499.0,266.0 L514.0,259.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M510.0,259.0 L514.0,259.0 L512.0,263.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M499.0,277.0 L514.0,270.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M510.0,270.0 L514.0,270.0 L512.0,274.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="620.0" cy="275.0" r="23" fill="none" stroke="#1f2328" stroke-width="1.4"/>
+<line x1="607.0" y1="262.0" x2="607.0" y2="288.0" stroke="#1f2328" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="607.0" y1="268.0" x2="631.0" y2="255.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="607.0" y1="282.0" x2="631.0" y2="295.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M622.0,286.0 L631.0,295.0 L621.0,295.0" fill="#1f2328" stroke="#1f2328" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="631.0" y1="255.0" x2="631.0" y2="214.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="295.0" x2="631.0" y2="336.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="120.0" x2="631.0" y2="136.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<path d="M625.0,127.0 L631.0,120.0 L637.0,127.0" fill="none" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="631.0" y="113.0" font-size="11" fill="#1a7f37" text-anchor="middle" font-weight="600">+3.3 V (ESP)</text>
+<line x1="631.0" y1="136.0" x2="631.0" y2="155.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<rect x="619.0" y="155.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="650.0" y="180.0" font-size="11" fill="#57606a" text-anchor="start">R4</text>
+<text x="650.0" y="195.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">4k7</text>
+<line x1="631.0" y1="209.0" x2="631.0" y2="214.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="336.0" x2="631.0" y2="456.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="442.0" x2="631.0" y2="456.0" stroke="#1a7f37" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="622.0" y1="456.0" x2="640.0" y2="456.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="625.5" y1="461.0" x2="636.5" y2="461.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="628.5" y1="466.0" x2="633.5" y2="466.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<text x="631.0" y="486.0" font-size="10" fill="#57606a" text-anchor="middle">ESP GND</text>
+<circle cx="631.0" cy="214.0" r="3.4" fill="#1f2328"/>
+<line x1="631.0" y1="214.0" x2="760.0" y2="214.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="760.0" y1="214.0" x2="760.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="760.0" y1="360.0" x2="790.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="802.0" y="348.0" width="48" height="24" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="826.0" y="341.0" font-size="11" fill="#57606a" text-anchor="middle">R5</text>
+<text x="826.0" y="387.0" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">100R</text>
+<line x1="850.0" y1="360.0" x2="944.0" y2="360.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="944.0" cy="360.0" r="3.4" fill="#1a7f37"/>
+<text x="940.0" y="350.0" font-size="11" fill="#1a7f37" text-anchor="end" font-weight="600">GPIO16</text>
+<text x="96.0" y="764.0" font-size="12" fill="#8250df" text-anchor="end" font-weight="600">Ctrl TX</text>
+<line x1="104.0" y1="760.0" x2="150.0" y2="760.0" stroke="#8250df" stroke-width="2.4" stroke-linecap="round"/>
+<circle cx="150.0" cy="760.0" r="3.4" fill="#8250df"/>
+<line x1="150.0" y1="760.0" x2="176.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="185.0" y="748.0" width="54" height="24" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="212.0" y="741.0" font-size="11" fill="#57606a" text-anchor="middle">R6</text>
+<text x="212.0" y="787.0" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">100k</text>
+<line x1="248.0" y1="760.0" x2="320.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="320.0" cy="760.0" r="3.4" fill="#1f2328"/>
+<line x1="320.0" y1="760.0" x2="320.0" y2="784.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="308.0" y="784.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="339.0" y="809.0" font-size="11" fill="#57606a" text-anchor="start">R7</text>
+<text x="339.0" y="824.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">47k</text>
+<line x1="320.0" y1="838.0" x2="320.0" y2="856.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="320.0" y1="842.0" x2="320.0" y2="856.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="311.0" y1="856.0" x2="329.0" y2="856.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="314.5" y1="861.0" x2="325.5" y2="861.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="317.5" y1="866.0" x2="322.5" y2="866.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<text x="320.0" y="886.0" font-size="10" fill="#57606a" text-anchor="middle">lock GND</text>
+<line x1="320.0" y1="760.0" x2="400.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="440.0" y1="760.0" x2="463.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="463.0" y1="742.0" x2="463.0" y2="778.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="471.0" y1="741.0" x2="471.0" y2="753.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="754.0" x2="471.0" y2="766.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="767.0" x2="471.0" y2="779.0" stroke="#1f2328" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="471.0" y1="742.0" x2="480.0" y2="742.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="742.0" x2="480.0" y2="712.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="778.0" x2="480.0" y2="778.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="778.0" x2="480.0" y2="808.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="760.0" x2="480.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M474.0,755.0 L481.0,760.0 L474.0,765.0" fill="#1f2328" stroke="#1f2328" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="492.0" y="734.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">Q2</text>
+<text x="492.0" y="748.0" font-size="10" fill="#57606a" text-anchor="start">2N7000</text>
+<text x="436.0" y="752.0" font-size="10" fill="#57606a" text-anchor="end">G</text>
+<text x="486.0" y="716.0" font-size="10" fill="#57606a" text-anchor="start">D</text>
+<text x="486.0" y="806.0" font-size="10" fill="#57606a" text-anchor="start">S</text>
+<line x1="480.0" y1="808.0" x2="480.0" y2="856.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="842.0" x2="480.0" y2="856.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="471.0" y1="856.0" x2="489.0" y2="856.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="474.5" y1="861.0" x2="485.5" y2="861.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="477.5" y1="866.0" x2="482.5" y2="866.0" stroke="#1f2328" stroke-width="2.2" stroke-linecap="round"/>
+<text x="480.0" y="886.0" font-size="10" fill="#57606a" text-anchor="middle">lock GND</text>
+<line x1="480.0" y1="520.0" x2="480.0" y2="536.0" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round"/>
+<path d="M474.0,527.0 L480.0,520.0 L486.0,527.0" fill="none" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="480.0" y="513.0" font-size="11" fill="#cf222e" text-anchor="middle" font-weight="600">+12 V (lock)</text>
+<line x1="480.0" y1="536.0" x2="480.0" y2="555.0" stroke="#cf222e" stroke-width="2.0" stroke-linecap="round"/>
+<rect x="468.0" y="555.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="499.0" y="580.0" font-size="11" fill="#57606a" text-anchor="start">R8</text>
+<text x="499.0" y="595.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">3k3</text>
+<line x1="480.0" y1="609.0" x2="480.0" y2="614.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="418.0" y="608.0" width="268.0" height="134.0" fill="none" stroke="#8250df" stroke-width="1.4" stroke-dasharray="5 4" rx="7"/>
+<text x="426.0" y="626.0" font-size="11" fill="#8250df" text-anchor="start" font-weight="600">U2</text>
+<text x="426.0" y="640.0" font-size="10" fill="#57606a" text-anchor="start">PC817</text>
+<path d="M467.0,656.0 L493.0,656.0 L480.0,694.0 L467.0,656.0" fill="none" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="466.0" y1="694.0" x2="494.0" y2="694.0" stroke="#1f2328" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="480.0" y1="614.0" x2="480.0" y2="656.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="480.0" y1="694.0" x2="480.0" y2="736.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M499.0,666.0 L514.0,659.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M510.0,659.0 L514.0,659.0 L512.0,663.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M499.0,677.0 L514.0,670.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M510.0,670.0 L514.0,670.0 L512.0,674.0" fill="none" stroke="#1f2328" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="620.0" cy="675.0" r="23" fill="none" stroke="#1f2328" stroke-width="1.4"/>
+<line x1="607.0" y1="662.0" x2="607.0" y2="688.0" stroke="#1f2328" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="607.0" y1="668.0" x2="631.0" y2="655.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="607.0" y1="682.0" x2="631.0" y2="695.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M622.0,686.0 L631.0,695.0 L621.0,695.0" fill="#1f2328" stroke="#1f2328" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="631.0" y1="655.0" x2="631.0" y2="614.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="695.0" x2="631.0" y2="736.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="520.0" x2="631.0" y2="536.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<path d="M625.0,527.0 L631.0,520.0 L637.0,527.0" fill="none" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="631.0" y="513.0" font-size="11" fill="#1a7f37" text-anchor="middle" font-weight="600">+3.3 V (ESP)</text>
+<line x1="631.0" y1="536.0" x2="631.0" y2="555.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<rect x="619.0" y="555.0" width="24" height="54" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="650.0" y="580.0" font-size="11" fill="#57606a" text-anchor="start">R9</text>
+<text x="650.0" y="595.0" font-size="11" fill="#1f2328" text-anchor="start" font-weight="600">4k7</text>
+<line x1="631.0" y1="609.0" x2="631.0" y2="614.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="736.0" x2="631.0" y2="856.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="631.0" y1="842.0" x2="631.0" y2="856.0" stroke="#1a7f37" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="622.0" y1="856.0" x2="640.0" y2="856.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="625.5" y1="861.0" x2="636.5" y2="861.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="628.5" y1="866.0" x2="633.5" y2="866.0" stroke="#1a7f37" stroke-width="2.2" stroke-linecap="round"/>
+<text x="631.0" y="886.0" font-size="10" fill="#57606a" text-anchor="middle">ESP GND</text>
+<circle cx="631.0" cy="614.0" r="3.4" fill="#1f2328"/>
+<line x1="631.0" y1="614.0" x2="760.0" y2="614.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="760.0" y1="614.0" x2="760.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="760.0" y1="760.0" x2="790.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<rect x="802.0" y="748.0" width="48" height="24" fill="#ffffff" stroke="#1f2328" stroke-width="1.6" rx="2"/>
+<text x="826.0" y="741.0" font-size="11" fill="#57606a" text-anchor="middle">R10</text>
+<text x="826.0" y="787.0" font-size="11" fill="#1f2328" text-anchor="middle" font-weight="600">100R</text>
+<line x1="850.0" y1="760.0" x2="944.0" y2="760.0" stroke="#1f2328" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="944.0" cy="760.0" r="3.4" fill="#1a7f37"/>
+<text x="940.0" y="750.0" font-size="11" fill="#1a7f37" text-anchor="end" font-weight="600">GPIO17</text>
+<rect x="960" y="296" width="148" height="532" fill="#ffffff" stroke="#1a7f37" stroke-width="1.8" rx="8"/>
+<text x="1034.0" y="332.0" font-size="14" fill="#1a7f37" text-anchor="middle" font-weight="600">ESP32</text>
+<text x="1034.0" y="352.0" font-size="10" fill="#57606a" text-anchor="middle">ESPHome</text>
+<text x="1034.0" y="376.0" font-size="10" fill="#57606a" text-anchor="middle">fuhr_multitronic</text>
+<text x="1034.0" y="790.0" font-size="10" fill="#57606a" text-anchor="middle">separate 5 V supply</text>
+<text x="1034.0" y="806.0" font-size="10" fill="#57606a" text-anchor="middle">(not from the lock)</text>
+<line x1="944.0" y1="360.0" x2="960.0" y2="360.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<line x1="944.0" y1="760.0" x2="960.0" y2="760.0" stroke="#1a7f37" stroke-width="2.0" stroke-linecap="round"/>
+<text x="34.0" y="958.0" font-size="12" fill="#1f2328" text-anchor="start">Both GPIOs idle HIGH — the opto only conducts while the bus is driven high — so set  inverted: true  on each pin.</text>
+<text x="34.0" y="980.0" font-size="12" fill="#57606a" text-anchor="start">Never join lock GND to ESP GND: that separation is what keeps the tap passive and lets the ESP outlive a cut to the lock supply.</text>
+</svg>

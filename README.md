@@ -58,6 +58,7 @@ drives the bus.
 - [Why this exists](#why-this-exists)
 - [Entities](#entities)
 - [Wiring](#wiring)
+  - [Interface circuit](#interface-circuit)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Supervision](#supervision-alarming-when-the-lock-goes-quiet)
@@ -105,16 +106,75 @@ read from it, and the component does not guess. See
 ## Wiring
 
 > **The bus runs at the lock's supply voltage. Do not connect it straight to a
-> GPIO.** Use an opto-coupler or a level shifter into a 3.3 V input.
+> GPIO.** A worked interface circuit is [below](#interface-circuit).
 
 | Signal | Required | Notes |
 |---|---|---|
-| Bus | yes | must idle **low** at the GPIO and go **high** for the start bit. If your interface inverts, set `inverted: true` on the pin |
+| Bus | yes | the GPIO must idle **low** and go **high** for the start bit. The opto circuit below inverts, so it needs `inverted: true` |
 | Controller TX | no | the line the controller drives while it transmits. It carries the controller's own drive signal, so it follows the data rather than sitting at a steady level; the component samples it at the start bit only. Improves direction reporting and lets it flag a message arriving from the wrong side |
 
 The controller-TX line is genuinely optional: every message code is only ever
 sent by one of the two parties, so direction is recovered from the code table
 when that line is absent. Both paths are covered by the test suite.
+
+### Interface circuit
+
+![Opto-isolated tap on the lock bus](docs/wiring.svg)
+
+Two identical channels, built from parts any shop stocks. The point of the
+design is that **the bus never has to drive anything**:
+
+* The signal line sees only the `100k` / `47k` divider — **about 80 µA** at 12 V,
+  and the MOSFET gate itself draws nothing. Whatever drives that line barely
+  notices the tap is there.
+* The opto LED current comes from the lock's **12 V supply rail**, switched by
+  the MOSFET. A supply rail can source milliamps without complaint; a signal
+  line is a different matter, which is why the LED is not hung off it directly.
+* The two sides share no ground. That keeps the tap passive, and it is what
+  lets the ESP run from its own supply and outlive a cut to the lock — see
+  [Supervision](#supervision-alarming-when-the-lock-goes-quiet).
+
+| Ref | Part | Value | Purpose |
+|---|---|---|---|
+| R1, R6 | resistor | 100 kΩ | upper leg of the divider; sets the load on the bus |
+| R2, R7 | resistor | 47 kΩ | lower leg; gives ~3.8 V at the gate for a 12 V bus |
+| R3, R8 | resistor | 3.3 kΩ | LED current, ~3.3 mA from the 12 V rail |
+| R4, R9 | resistor | 4.7 kΩ | pull-up on the ESP side |
+| R5, R10 | resistor | 100 Ω | series protection into the GPIO |
+| Q1, Q2 | N-channel MOSFET | 2N7000 | switches the LED; gate draws no bus current |
+| U1, U2 | opto-coupler | PC817 | the isolation barrier |
+
+**Set `inverted: true` on both pins.** The opto conducts only while the bus is
+driven high, so each GPIO idles high and the signal arrives inverted:
+
+```yaml
+bus_pin:
+  number: GPIO16
+  mode: {input: true}
+  inverted: true
+ctrl_pin:
+  number: GPIO17
+  mode: {input: true}
+  inverted: true
+```
+
+**Speed is not a concern.** A PC817 with a 4.7 kΩ pull-up turns off in tens of
+microseconds; a bit lasts 500 µs and the decoder samples at bit centres, so
+even 100 µs of edge skew would not matter. The bus itself already shows ~20 µs
+of rise/fall asymmetry.
+
+**Before you build**, measure the bus with a meter or scope and confirm it
+really swings between 0 V and about 12 V referenced to the lock's own ground,
+and that it idles low. The divider ratio and the gate threshold both depend on
+that. If your installation differs, adjust R1/R2 so the gate sees roughly 3–5 V
+when the bus is at its high level.
+
+`docs/make_wiring.py` regenerates the diagram.
+
+> A non-isolated variant — divider straight into a 74LVC1G17 Schmitt-trigger
+> buffer — is simpler and loads the bus even less, but it needs a shared ground
+> between the lock and the ESP. That rules out an independent supply for the
+> ESP, and with it the supervision behaviour above.
 
 ## Installation
 
