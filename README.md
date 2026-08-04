@@ -60,6 +60,7 @@ drives the bus.
 - [Wiring](#wiring)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Supervision](#supervision-alarming-when-the-lock-goes-quiet)
 - [Protocol](#protocol)
   - [Physical layer](#physical-layer)
   - [Frame format](#frame-format)
@@ -172,6 +173,88 @@ fuhr_multitronic:
 [`fuhr_lock.yaml`](fuhr_lock.yaml) is a complete working configuration. It also
 adds template binary sensors that mirror `door` and `lock` with the matching
 Home Assistant device classes; `fault` and `tamper` are already binary.
+
+---
+
+## Supervision: alarming when the lock goes quiet
+
+The lock repeats its status every ~14.9 s, which makes silence itself a signal.
+Cut the wire between the lock and the controller, or switch the lock off, and
+the bus simply stops. That is worth alarming on: it is what a burglar disabling
+the system looks like from here.
+
+Set `timeout` to **45 s** — three missed keep-alives. Long enough not to fire on
+a single corrupted frame, short enough to be useful, and still faster than the
+controller itself, which needs 21 s before it flags "door not locked".
+
+```yaml
+fuhr_multitronic:
+  id: lock_bus
+  bus_pin: {number: GPIO16, mode: {input: true}}
+  timeout: 45s                    # three missed keep-alives
+
+binary_sensor:
+  - platform: fuhr_multitronic
+    fuhr_multitronic_id: lock_bus
+    connected:
+      name: "Lock connection"
+      id: lock_connection
+      on_release:                 # off = nothing heard within the timeout
+        - logger.log:
+            level: WARN
+            format: "No status from the lock for 45 s"
+```
+
+### The ESP cannot report its own death
+
+`connected` covers the bus going quiet. It cannot cover the ESP going quiet —
+cut its power instead of the bus and no "lost contact" message is ever sent,
+because there is nothing left to send it. Home Assistant has to close that gap
+by treating **`unavailable` as an alarm too**:
+
+```yaml
+automation:
+  - alias: "Front door lock supervision"
+    mode: single
+    trigger:
+      # The bus went quiet but the ESP is still alive and told us.
+      - platform: state
+        entity_id: binary_sensor.lock_connection
+        to: "off"
+        id: bus_silent
+      # The ESP itself stopped answering. The delay keeps OTA updates and
+      # reboots from setting it off.
+      - platform: state
+        entity_id: binary_sensor.lock_connection
+        to: "unavailable"
+        for: "00:01:00"
+        id: esp_silent
+    action:
+      - service: notify.mobile_app_phone
+        data:
+          title: "Front door lock"
+          message: >-
+            {{ "No status from the lock for 45 s"
+               if trigger.id == "bus_silent"
+               else "The lock monitor itself is unreachable" }}
+```
+
+Both triggers matter, and neither replaces the other: the first catches a cut
+bus wire, the second catches a cut power lead, a dead ESP or a Wi-Fi failure.
+
+### Do not power the ESP from the lock
+
+If the ESP shares a supply with the lock, one cut kills both — and then only the
+second trigger above ever fires, a minute late, with no idea why. A separate
+supply, ideally with a small UPS or battery, is what turns *"I can see the lock
+go quiet"* into *"I can see anything at all"*.
+
+### Testing it
+
+The capture `controller_loses_contact_sets_door_contact_open` contains a real
+**91-second gap** between two status messages (33.7 s → 124.8 s), which is
+exactly this scenario recorded live. It is in `tests/edges/`, so you can replay
+it on the bench and watch `connected` drop and come back.
 
 ---
 

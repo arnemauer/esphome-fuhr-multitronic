@@ -56,7 +56,10 @@ fuhr_multitronic:
     mode:
       input: true
   baud_rate: 2000
-  timeout: 30s
+  # Three missed keep-alives. See "Supervision" in README.md - and note
+  # that Home Assistant must also alarm on the entity going unavailable,
+  # because a dead ESP cannot report its own death.
+  timeout: 45s
 
   on_message:
     - lambda: |-
@@ -83,6 +86,11 @@ binary_sensor:
     fuhr_multitronic_id: lock_bus
     connected:
       name: "Lock connection"
+      id: lock_connection
+      on_release:
+        - logger.log:
+            level: WARN
+            format: "No status from the lock for 45 s"
     fault:
       name: "Lock fault"
     tamper:
