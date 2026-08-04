@@ -110,7 +110,7 @@ read from it, and the component does not guess. See
 | Signal | Required | Notes |
 |---|---|---|
 | Bus | yes | must idle **low** at the GPIO and go **high** for the start bit. If your interface inverts, set `inverted: true` on the pin |
-| Controller TX | no | the line that is asserted while the controller transmits. Improves direction reporting and lets the component flag a message arriving from the wrong side |
+| Controller TX | no | the line the controller drives while it transmits. It carries the controller's own drive signal, so it follows the data rather than sitting at a steady level; the component samples it at the start bit only. Improves direction reporting and lets it flag a message arriving from the wrong side |
 
 The controller-TX line is genuinely optional: every message code is only ever
 sent by one of the two parties, so direction is recovered from the code table
@@ -271,7 +271,7 @@ Everything below was derived from 30 logic-analyser captures totalling
 | Idle level | low |
 | Polarity | inverted UART — a physical **high is a logical 0** |
 | Topology | one shared line; both parties transmit on it |
-| Direction | a second line is asserted while the controller transmits, and idle while the lock transmits |
+| Direction | a second line carries the controller's drive: active only during controller frames, and following the data within them. Its state at the start bit is enough to tell who is talking |
 
 ## Frame format
 
@@ -586,15 +586,27 @@ separate door contact can.
 
 ## Permanent open and day latch functions
 
-The commands map onto the two functions Fuhr documents for the input
-terminals. There is no single umbrella term for them; each has its own name.
+What the mechanism does, as specified by the manufacturer:
+
+| Function | Bolts | Latch |
+|---|---|---|
+| **Standard opening** | Opening and locking after 3 seconds | Upon opening the door leaf or after 3 seconds, the latch protrudes |
+| **Permanent open function** | Remain withdrawn as long as the continuous signal is applied | Remains withdrawn as long as the continuous signal is applied |
+| **Day latch function 1** | Remain withdrawn as long as the continuous signal is applied | Upon opening the door leaf or after 5 seconds, the latch protrudes |
+| **Day latch function 2** | Remain withdrawn as long as the continuous signal is applied | **Not** withdrawn |
+
+The two day latch variants are selected with the TGF jumper, and the captures
+show the controller sending a **different command code** for each: function 1
+is `0x11`, function 2 is `0x17`.
+
+What that looks like on the bus:
 
 | Function | Terminals | Activate | Release | Latch |
 |---|---|---|---|---|
 | **Permanent open function**, continuous | 9 + 10 | `0x12` | `0x14` | withdrawn and **stays** withdrawn |
 | Ports 9 + 10 while the day latch function is active | 9 + 10 | `0x10` | — | the documented "afterwards the latch can be operated via ports 9 + 10" |
-| **Day latch function**, jumper TGF **removed** | 11 + 12 | `0x17` | `0x13` | **stays out** — no `0x08` at all |
-| **Day latch function**, jumper TGF **fitted** | 11 + 12 | `0x11` | `0x13` | withdrawn **once**, comes back out after ~5 s |
+| **Day latch function 2**, jumper TGF **removed** | 11 + 12 | `0x17` | `0x13` | not withdrawn — no `0x08` at all |
+| **Day latch function 1**, jumper TGF **fitted** | 11 + 12 | `0x11` | `0x13` | withdrawn **once**, then protrudes again |
 
 The jumper does not just change the lock's behaviour — the controller sends a
 different command code for it. `0x11` and `0x17` are otherwise interchangeable:
