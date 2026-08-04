@@ -135,8 +135,8 @@ void FuhrMultitronic::publish_states_() {
     this->door_sensor_->publish_state(fuhr::StateTracker::door_str(this->state_.door));
   if (this->lock_sensor_ != nullptr && (first || this->state_.lock != this->last_lock_))
     this->lock_sensor_->publish_state(fuhr::StateTracker::lock_str(this->state_.lock));
-  if (this->day_mode_sensor_ != nullptr && (first || this->state_.day != this->last_day_))
-    this->day_mode_sensor_->publish_state(fuhr::StateTracker::day_str(this->state_.day));
+  if (this->day_latch_sensor_ != nullptr && (first || this->state_.day != this->last_day_))
+    this->day_latch_sensor_->publish_state(fuhr::StateTracker::day_str(this->state_.day));
   this->published_once_ = true;
 #endif
 #ifdef USE_BINARY_SENSOR
@@ -172,7 +172,7 @@ void FuhrMultitronic::dump_config() {
   LOG_TEXT_SENSOR("  ", "Message", this->message_sensor_);
   LOG_TEXT_SENSOR("  ", "Door", this->door_sensor_);
   LOG_TEXT_SENSOR("  ", "Lock", this->lock_sensor_);
-  LOG_TEXT_SENSOR("  ", "Day mode", this->day_mode_sensor_);
+  LOG_TEXT_SENSOR("  ", "Day latch function", this->day_latch_sensor_);
 #endif
 #ifdef USE_BINARY_SENSOR
   LOG_BINARY_SENSOR("  ", "Connected", this->connected_sensor_);

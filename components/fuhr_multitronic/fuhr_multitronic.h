@@ -41,7 +41,7 @@ class FuhrMultitronic : public Component {
   void set_message_sensor(text_sensor::TextSensor *s) { this->message_sensor_ = s; }
   void set_door_sensor(text_sensor::TextSensor *s) { this->door_sensor_ = s; }
   void set_lock_sensor(text_sensor::TextSensor *s) { this->lock_sensor_ = s; }
-  void set_day_mode_sensor(text_sensor::TextSensor *s) { this->day_mode_sensor_ = s; }
+  void set_day_latch_sensor(text_sensor::TextSensor *s) { this->day_latch_sensor_ = s; }
 #endif
 #ifdef USE_BINARY_SENSOR
   void set_connected_sensor(binary_sensor::BinarySensor *s) { this->connected_sensor_ = s; }
@@ -95,7 +95,7 @@ class FuhrMultitronic : public Component {
 
   fuhr::DoorState last_door_{fuhr::DOOR_UNKNOWN};
   fuhr::LockState last_lock_{fuhr::LOCK_UNKNOWN};
-  fuhr::DayMode last_day_{fuhr::DAY_UNKNOWN};
+  fuhr::DayLatch last_day_{fuhr::DAY_UNKNOWN};
   fuhr::Tri last_fault_{fuhr::TRI_UNKNOWN};
   fuhr::Tri last_tamper_{fuhr::TRI_UNKNOWN};
   bool published_once_{false};
@@ -106,7 +106,7 @@ class FuhrMultitronic : public Component {
   text_sensor::TextSensor *message_sensor_{nullptr};
   text_sensor::TextSensor *door_sensor_{nullptr};
   text_sensor::TextSensor *lock_sensor_{nullptr};
-  text_sensor::TextSensor *day_mode_sensor_{nullptr};
+  text_sensor::TextSensor *day_latch_sensor_{nullptr};
 #endif
 #ifdef USE_BINARY_SENSOR
   binary_sensor::BinarySensor *connected_sensor_{nullptr};

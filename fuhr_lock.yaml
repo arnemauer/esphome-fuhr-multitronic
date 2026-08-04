@@ -77,9 +77,9 @@ text_sensor:
     lock:
       name: "Lock status"
       id: lock_status
-    day_mode:
-      name: "Day mode"
-      id: day_mode_status
+    day_latch:
+      name: "Day latch function"
+      id: day_latch_status
 
 binary_sensor:
   - platform: fuhr_multitronic

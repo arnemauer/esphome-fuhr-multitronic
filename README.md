@@ -41,7 +41,7 @@ two contacts:
 
 That is the gap this component fills. It listens on the bus between the lock and
 the controller and turns what is already being said there into separate Home
-Assistant entities: door position, lock state, day mode, faults and a tamper
+Assistant entities: door position, lock state, day latch function, faults and a tamper
 alarm that is actually distinguishable from a normal opening.
 
 It stays out of the way while doing it: the component only receives, and never
@@ -74,7 +74,7 @@ drives the bus.
   - [Keep-alive and timeout](#keep-alive-and-timeout)
   - [Typical sequences](#typical-sequences)
   - [The tamper state](#the-tamper-state-ends-only-on-an-unlock-command)
-  - [Loop functions](#loop-functions)
+  - [Permanent open and day latch functions](#permanent-open-and-day-latch-functions)
 - [Terminology](#terminology)
 - [How the states are derived](#how-the-states-are-derived)
 - [Caveats and open questions](#caveats-and-open-questions)
@@ -87,18 +87,18 @@ drives the bus.
 
 | Entity | Type | Values |
 |---|---|---|
-| `message` | text_sensor | every decoded frame, e.g. `LOCK 0x03 Door closed` or `CTRL 0x17 Cmd: day mode on` |
+| `message` | text_sensor | every decoded frame, e.g. `LOCK 0x03 Door closed` or `CTRL 0x17 Cmd: day latch function on` |
 | `door` | text_sensor | `Open` · `Closed` · `Unknown` |
 | `lock` | text_sensor | `Locked` · `Unlocked` · `Locking` · `Unknown` |
-| `day_mode` | text_sensor | `Off` · `On, day bolt retracted` · `On, day bolt out` · `Unknown` |
+| `day_latch` | text_sensor | `Off` · `On, latch withdrawn` · `On, latch out` · `Unknown` |
 | `connected` | binary_sensor | connectivity: off when no message has arrived within `timeout` |
 | `fault` | binary_sensor | problem: on at `0x0D`, off at any other message from the lock |
 | `tamper` | binary_sensor | tamper: on at `0x18`, off at `0x16` — see [below](#the-tamper-state-ends-only-on-an-unlock-command) |
 
 Everything starts unknown after a reboot and fills in as messages arrive. The
 lock repeats its status every ~15 s, so `lock` and `fault` are correct within
-about 15 seconds of boot. `door` and `day_mode` can take longer: if the lock is
-sitting in a repeated `0x06`, neither the door position nor the day mode can be
+about 15 seconds of boot. `door` and `day_latch` can take longer: if the lock is
+sitting in a repeated `0x06`, neither the door position nor the day latch state can be
 read from it, and the component does not guess. See
 [Caveats](#caveats-and-open-questions).
 
@@ -148,7 +148,7 @@ text_sensor:
     message: {name: "Lock last message"}
     door: {name: "Door status"}
     lock: {name: "Lock status"}
-    day_mode: {name: "Day mode"}
+    day_latch: {name: "Day latch function"}
 
 binary_sensor:
   - platform: fuhr_multitronic
@@ -374,12 +374,12 @@ handshake. Direction is fixed per code.
 
 | Code | Line bits | Meaning |
 |---|---|---|
-| `0x10` | `5655A5A6` | Open door / day bolt while day mode is active |
-| `0x11` | `5656A655` | Day mode **on**, day bolt retracted once — jumper TGF fitted |
-| `0x12` | `5659AA6A` | Unlock door (loop function 9 + 10, day mode not active) |
-| `0x13` | `565AA999` | Day mode **off** |
-| `0x14` | `56659A96` | Retract day bolt / release the request input |
-| `0x17` | `566A96A9` | Day mode **on**, day bolt stays out — jumper TGF removed |
+| `0x10` | `5655A5A6` | Open door / latch while the day latch function is active |
+| `0x11` | `5656A655` | Day latch function **on**, latch withdrawn once — jumper TGF fitted |
+| `0x12` | `5659AA6A` | Unlock door (permanent open function, ports 9 + 10) |
+| `0x13` | `565AA999` | Day latch function **off** |
+| `0x14` | `56659A96` | Withdraw latch / release the request input |
+| `0x17` | `566A96A9` | Day latch function **on**, latch stays out — jumper TGF removed |
 
 ### Lock → controller
 
@@ -388,9 +388,9 @@ handshake. Direction is fixed per code.
 | `0x02` | `55595A99` | Door opened |
 | `0x03` | `555A596A` | Door closed, not locked |
 | `0x05` | `55666996` | Locking started (motor running) |
-| `0x06` | `556965A9` | Bolts retracted / unlocked — also the periodic status in day mode |
+| `0x06` | `556965A9` | Bolts withdrawn / unlocked — also a periodic status |
 | `0x07` | `556A665A` | Locked and secured — also the periodic status in night mode |
-| `0x08` | `5595A995` | Day bolt retracted |
+| `0x08` | `5595A995` | Latch withdrawn |
 | `0x0D` | `55A69556` | Fault / blocked / alarm |
 | `0x0E` | `55A99969` | Locking finished, bolts thrown |
 | `0x15` | `56669965` | Lock opened manually (key or handle) |
@@ -430,15 +430,16 @@ codes turn up as the repeated status:
 | Code | Repeated while | Seen in |
 |---|---|---|
 | `0x07` Door locked | closed and locked — the normal resting state | 16 intervals |
-| `0x03` Door closed | day mode, after the door has been opened and closed at least once, so the latch is out again | 21 intervals |
-| `0x06` Bolts retracted | the bolts are held retracted and the latch has not re-engaged: permanent open, or day mode before the door is first cycled | 13 intervals |
+| `0x03` Door closed | day latch function, after the door has been opened and closed at least once, so the latch is out again | 21 intervals |
+| `0x06` Bolts withdrawn | the bolts are held withdrawn and the latch has not re-engaged: permanent open function, or day latch function before the door is first cycled | 13 intervals |
 | `0x0D` Fault / alarm | blocked or faulted | 5 intervals |
 | `0x18` Door opened while locked | a tamper is active | 5 intervals |
 
 `0x06` is worth singling out twice over.
 
 First, it is easy to assume it is only ever a transient step in an unlock
-sequence. It is not: switch day mode on and leave the door alone, and `0x06` is
+sequence. It is not: switch the day latch function on and leave the door alone,
+and `0x06` is
 all the lock says, every ~14.9 s, indefinitely. That is why the component may
 not simply ignore it — see [the tamper section](#what-the-component-does-with-it).
 
@@ -466,9 +467,9 @@ capture; the controller held the request input for 1.0 s.
 ```
  5.275 s  CTRL → 0x12  Cmd: unlock
  5.299 s  LOCK → 0x19  Command acknowledged
- 5.352 s  LOCK → 0x06  Bolts retracted
- 6.273 s  CTRL → 0x14  Cmd: retract day bolt      ← input released after 1.0 s
- 6.367 s  LOCK → 0x08  Day bolt retracted
+ 5.352 s  LOCK → 0x06  Bolts withdrawn
+ 6.273 s  CTRL → 0x14  Cmd: withdraw latch        ← input released after 1.0 s
+ 6.367 s  LOCK → 0x08  Latch withdrawn
  9.089 s  LOCK → 0x02  Door opened
  9.112 s  LOCK → 0x16  Action complete: unlocked
  9.136 s  CTRL → 0x14  (echo)
@@ -482,12 +483,12 @@ Two timings are strikingly consistent across every capture: the motor takes
 **2.21–2.32 s** from `0x05` to `0x0E`, and `0x0E` is followed by `0x07` within
 20 ms. A closed door waits about **3.8 s** before locking starts.
 
-**Switching day mode on:**
+**Switching the day latch function on:**
 
 ```
-7.567 s  CTRL → 0x17  Cmd: day mode on
+7.567 s  CTRL → 0x17  Cmd: day latch function on
 7.591 s  LOCK → 0x19  Command acknowledged
-7.644 s  LOCK → 0x06  Bolts retracted
+7.644 s  LOCK → 0x06  Bolts withdrawn
 9.204 s  LOCK → 0x16  Action complete: unlocked
 9.227 s  CTRL → 0x17  (echo)
    ...   LOCK → 0x06  repeated every ~14.9 s
@@ -502,7 +503,7 @@ holds `0x18` as its status, replacing the normal keep-alive:
  8.538 s  LOCK → 0x07  Door locked
  8.968 s  LOCK → 0x02  Door opened
  8.992 s  LOCK → 0x18  Door opened while locked
- 9.015 s  LOCK → 0x06  Bolts retracted
+ 9.015 s  LOCK → 0x06  Bolts withdrawn
 23.965 s  LOCK → 0x18  ← keep-alive, and every ~14.9 s after that
 38.894 s  LOCK → 0x18
 53.823 s  LOCK → 0x18
@@ -537,7 +538,7 @@ sequenceDiagram
     Note over C,L: door is forced while locked
     L->>C: 0x02 Door opened
     L->>C: 0x18 Door opened while locked
-    L->>C: 0x06 Bolts retracted
+    L->>C: 0x06 Bolts withdrawn
     Note right of L: all three within ~50 ms;<br/>0x06 does NOT mean unlocked
     loop every ~14.9 s
         L->>C: 0x18 Door opened while locked
@@ -547,14 +548,14 @@ sequenceDiagram
 
     C->>L: 0x17 / 0x11 / 0x12 unlock command
     L->>C: 0x19 Command acknowledged
-    L->>C: 0x06 Bolts retracted
+    L->>C: 0x06 Bolts withdrawn
     L->>C: 0x16 Action complete: unlocked
     C->>L: echoes its own command
     Note over L: tamper ends here
 
     alt door still open
         loop every ~14.9 s
-            L->>C: 0x06 Bolts retracted
+            L->>C: 0x06 Bolts withdrawn
         end
         L->>C: 0x03 Door closed
     else door already closed
@@ -583,24 +584,25 @@ not as a live door signal. While it lasts, `door` keeps the value it had at
 whether the door is really shut during a tamper, this bus cannot tell you — a
 separate door contact can.
 
-## Loop functions
+## Permanent open and day latch functions
 
-The commands map onto the lock's documented loop functions:
+The commands map onto the two functions Fuhr documents for the input
+terminals. There is no single umbrella term for them; each has its own name.
 
-| Loop function | Activate | Release | Day bolt |
-|---|---|---|---|
-| 9 + 10, continuous | `0x12` | `0x14` | retracted and **stays** retracted |
-| 9 + 10 while day mode is active | `0x10` | — | the documented "afterwards the day bolt can be operated via ports 9 + 10" |
-| 11 + 12, jumper TGF **removed** | `0x17` | `0x13` | **stays out** — no `0x08` at all |
-| 11 + 12, jumper TGF **fitted** | `0x11` | `0x13` | retracted **once**, comes back out after ~5 s |
+| Function | Terminals | Activate | Release | Latch |
+|---|---|---|---|---|
+| **Permanent open function**, continuous | 9 + 10 | `0x12` | `0x14` | withdrawn and **stays** withdrawn |
+| Ports 9 + 10 while the day latch function is active | 9 + 10 | `0x10` | — | the documented "afterwards the latch can be operated via ports 9 + 10" |
+| **Day latch function**, jumper TGF **removed** | 11 + 12 | `0x17` | `0x13` | **stays out** — no `0x08` at all |
+| **Day latch function**, jumper TGF **fitted** | 11 + 12 | `0x11` | `0x13` | withdrawn **once**, comes back out after ~5 s |
 
 The jumper does not just change the lock's behaviour — the controller sends a
 different command code for it. `0x11` and `0x17` are otherwise interchangeable:
-both switch day mode on, both are released with `0x13`.
+both switch the day latch function on, both are released with `0x13`.
 
 Ports 7 + 8 were not captured. According to the manufacturer's documentation
 they offer the same two functions; ports 11 + 12 with TGF fitted behave the
-same way (day bolt back out after 5 s).
+same way (latch back out after ~5 s).
 
 **Function 1 (pulse ≤ 1 s) and function 2 (continuous) use the same command
 code.** The difference is only how long the input is held, visible as the gap
@@ -611,17 +613,17 @@ before the matching release:
 continuous       4.53 s C 0x12  →  67.01 s C 0x14   (+62 s)
 ```
 
-### Day mode with and without the TGF jumper
+### The day latch function with and without the TGF jumper
 
 The two variants are byte-for-byte identical apart from the command code and
-the day bolt handling:
+the latch handling:
 
 ```
 TGF removed                          TGF fitted
  9.262 s  CTRL → 0x17                 9.166 s  CTRL → 0x11
  9.286 s  LOCK → 0x19                 9.190 s  LOCK → 0x19
  9.339 s  LOCK → 0x06                 9.244 s  LOCK → 0x06
-                                     10.257 s  LOCK → 0x08   ← day bolt retracted
+                                     10.257 s  LOCK → 0x08   ← latch withdrawn
 10.888 s  LOCK → 0x16                17.773 s  LOCK → 0x16
 10.912 s  CTRL → 0x17  (echo)        17.797 s  CTRL → 0x11  (echo)
    ...    LOCK → 0x06 every ~14.9 s      ...   LOCK → 0x06 every ~14.9 s
@@ -632,11 +634,11 @@ TGF removed                          TGF fitted
 ```
 
 Note that `0x16` arrives 1.55 s after `0x06` without the jumper, but 7.5 s
-after `0x08` with it. **The day bolt coming back out is not reported
-separately** — `0x16` is the only marker for the end of that window. Loop
-function 9 + 10 (`0x12`) shows exactly the same `0x08` → 7.5 s → `0x16`
-pattern, even though there the day bolt stays retracted, so the timing alone
-does not distinguish the two; the activating command does.
+after `0x08` with it. **The latch coming back out is not reported separately**
+— `0x16` is the only marker for the end of that window. The permanent open
+function (`0x12`) shows exactly the same `0x08` → 7.5 s → `0x16` pattern, even
+though there the latch stays withdrawn, so the timing alone does not
+distinguish the two; the activating command does.
 
 ---
 
@@ -649,15 +651,16 @@ and the original capture filenames are Dutch, so here is the mapping:
 |---|---|
 | slot | lock |
 | deur | door |
-| dagstand | day mode |
-| dagschoot | day bolt (the latch) |
+| dagstand | day latch function |
+| dagschoot | latch |
 | nachtschoot | night bolt (the deadbolt) |
 | haakschoot | hook bolt |
 | schoten | bolts |
 | ingetrokken | retracted |
 | vergrendeld / ontgrendeld | locked / unlocked |
 | storing | fault |
-| loopfunctie | loop function |
+| loopfunctie 9 + 10 | permanent open function |
+| loopfunctie 11 + 12 / dagstand | day latch function |
 | openingspuls | opening pulse |
 
 ---
@@ -666,19 +669,19 @@ and the original capture filenames are Dutch, so here is the mapping:
 
 | Code | Meaning | Effect |
 |---|---|---|
-| `0x02` | Door opened | door = Open, day bolt out. Does **not** unlock: a door can be opened while locked |
-| `0x03` | Door closed | door = Closed, lock = Unlocked, day bolt out |
+| `0x02` | Door opened | door = Open, latch out. Does **not** unlock: a door can be opened while locked |
+| `0x03` | Door closed | door = Closed, lock = Unlocked, latch out |
 | `0x05` | Locking started | lock = Locking |
-| `0x06` | Bolts retracted | lock = Unlocked, **unless a tamper is active** |
-| `0x07` | Door locked | door = Closed, lock = Locked, day mode off |
-| `0x08` | Day bolt retracted | day bolt retracted |
+| `0x06` | Bolts withdrawn | lock = Unlocked, **unless a tamper is active** |
+| `0x07` | Door locked | door = Closed, lock = Locked, day latch off |
+| `0x08` | Latch withdrawn | latch withdrawn |
 | `0x0D` | Fault / alarm | fault = on |
-| `0x0E` | Locking finished | lock = Locked, day mode off |
-| `0x11` | Cmd day mode on (TGF) | day mode on |
-| `0x13` | Cmd day mode off | day mode off |
+| `0x0E` | Locking finished | lock = Locked, day latch off |
+| `0x11` | Cmd day latch function on (TGF) | day latch on |
+| `0x13` | Cmd day latch function off | day latch off |
 | `0x15` | Manually unlocked | lock = Unlocked |
-| `0x16` | Action complete: unlocked | lock = Unlocked, tamper = off; day bolt back out if the last command was `0x11` |
-| `0x17` | Cmd day mode on | day mode on |
+| `0x16` | Action complete: unlocked | lock = Unlocked, tamper = off; latch back out if the last command was `0x11` |
+| `0x17` | Cmd day latch function on | day latch on |
 | `0x18` | Door opened while locked | door = Open, lock = Locked, tamper = on |
 | `0x10` `0x12` `0x14` `0x19` | — | no state change on their own |
 
@@ -692,23 +695,24 @@ and published to `message` as `ERROR 0x..`.
 
 ## Caveats and open questions
 
-* **`day_mode` starts as `Unknown`.** Day mode is tracked from the `0x17`
+* **`day_latch` starts as `Unknown`.** The day latch function is tracked from the `0x17`
   (on) and `0x13` (off) commands, plus `0x07`/`0x0E` which imply it is off. It
-  is deliberately *not* inferred from `0x06`: that status also appears for loop
-  function 9 + 10 (all bolts retracted), which is not day mode. Guessing there
-  would silently report day mode when the door is merely being held open.
+  is deliberately *not* inferred from `0x06`: that status also appears for the
+  permanent open function (all bolts withdrawn), which is a different thing.
+  Guessing there would silently report the day latch function when the door is
+  merely being held open.
 * **Ports 7 + 8 were never captured.** The installation these captures come
   from does not use them. Per the manufacturer's documentation they offer the
   same two functions as ports 9 + 10, and ports 11 + 12 with TGF fitted behave
-  identically (day bolt back out after ~5 s), so `0x11` is likely what 7 + 8
+  identically (latch back out after ~5 s), so `0x11` is likely what 7 + 8
   produces too — but that is inference, not measurement.
-* **The day bolt coming back out is not announced.** With `0x11` the component
-  reports *On, day bolt retracted* between `0x08` and `0x16`,
-  then *On, day bolt out*. That matches the observed ~5 s behaviour closely but is
+* **The latch coming back out is not announced.** With `0x11` the component
+  reports *On, latch withdrawn* between `0x08` and `0x16`,
+  then *On, latch out*. That matches the observed ~5 s behaviour closely but is
   derived from `0x16`, not from a dedicated message.
 * **After a reboot into a steady `0x06`, the door state stays unknown.** `0x06`
-  is sent both with the door closed (permanent open, or day mode nobody has
-  used yet) and with the door open (after a tamper, once the lock is
+  is sent both with the door closed (permanent open function, or the day latch
+  function nobody has used yet) and with the door open (after a tamper, once the lock is
   unlocked). Nothing in the message distinguishes them, and after a reboot
   there is no history to fall back on either. `door` therefore stays `Unknown`
   until something conclusive arrives — `0x02`/`0x18` for open, `0x03`/`0x07`

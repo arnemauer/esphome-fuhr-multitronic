@@ -180,10 +180,10 @@ int main(int argc, char **argv) {
   fuhr::StateTracker st;
   st.reset();
   const uint8_t seq[] = {0x07, 0x17, 0x19, 0x06, 0x16, 0x02, 0x03, 0x05, 0x0E, 0x07};
-  const char *expect_day[] = {"Off", "On, day bolt out", "On, day bolt out",
-                              "On, day bolt out", "On, day bolt out",
-                              "On, day bolt out", "On, day bolt out",
-                              "On, day bolt out", "Off", "Off"};
+  const char *expect_day[] = {"Off", "On, latch out", "On, latch out",
+                              "On, latch out", "On, latch out",
+                              "On, latch out", "On, latch out",
+                              "On, latch out", "Off", "Off"};
   for (size_t i = 0; i < sizeof(seq); i++) {
     st.apply(seq[i]);
     if (strcmp(fuhr::StateTracker::day_str(st.day), expect_day[i]) != 0) {
@@ -201,8 +201,8 @@ int main(int argc, char **argv) {
     failures++;
   }
 
-  // Day mode with the TGF jumper fitted: the day bolt is retracted once
-  // (0x08) and comes back out at 0x16.
+  // Day latch function with the TGF jumper fitted: the latch is withdrawn
+  // once (0x08) and comes back out at 0x16.
   {
     fuhr::StateTracker t;
     t.reset();
@@ -211,11 +211,11 @@ int main(int argc, char **argv) {
       const char *day;
     } steps[] = {
         {0x07, "Off"},
-        {0x11, "On, day bolt out"},
-        {0x19, "On, day bolt out"},
-        {0x06, "On, day bolt out"},
-        {0x08, "On, day bolt retracted"},
-        {0x16, "On, day bolt out"},
+        {0x11, "On, latch out"},
+        {0x19, "On, latch out"},
+        {0x06, "On, latch out"},
+        {0x08, "On, latch withdrawn"},
+        {0x16, "On, latch out"},
         {0x13, "Off"},
         {0x05, "Off"},
         {0x0E, "Off"},
@@ -231,8 +231,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Loop function 9+10 uses 0x12, which must NOT be read as day mode, and
-  // there the day bolt stays retracted past 0x16.
+  // The permanent open function uses 0x12, which must NOT be read as the day
+  // latch function, and there the latch stays withdrawn past 0x16.
   {
     fuhr::StateTracker t;
     t.reset();

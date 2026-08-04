@@ -43,19 +43,19 @@ static const MessageInfo MESSAGES[] = {
     {0x02, SENDER_LOCK, "Door opened"},
     {0x03, SENDER_LOCK, "Door closed"},
     {0x05, SENDER_LOCK, "Locking started"},
-    {0x06, SENDER_LOCK, "Bolts retracted"},
+    {0x06, SENDER_LOCK, "Bolts withdrawn"},
     {0x07, SENDER_LOCK, "Door locked"},
-    {0x08, SENDER_LOCK, "Day bolt retracted"},
+    {0x08, SENDER_LOCK, "Latch withdrawn"},
     {0x0D, SENDER_LOCK, "Fault / alarm"},
     {0x0E, SENDER_LOCK, "Locking finished"},
-    {0x10, SENDER_CTRL, "Cmd: open (day mode active)"},
-    {0x11, SENDER_CTRL, "Cmd: day mode on, day bolt retracted once"},
+    {0x10, SENDER_CTRL, "Cmd: open (day latch function active)"},
+    {0x11, SENDER_CTRL, "Cmd: day latch function on, latch withdrawn once"},
     {0x12, SENDER_CTRL, "Cmd: unlock"},
-    {0x13, SENDER_CTRL, "Cmd: day mode off"},
-    {0x14, SENDER_CTRL, "Cmd: retract day bolt"},
+    {0x13, SENDER_CTRL, "Cmd: day latch function off"},
+    {0x14, SENDER_CTRL, "Cmd: withdraw latch"},
     {0x15, SENDER_LOCK, "Manually unlocked"},
     {0x16, SENDER_LOCK, "Action complete: unlocked"},
-    {0x17, SENDER_CTRL, "Cmd: day mode on"},
+    {0x17, SENDER_CTRL, "Cmd: day latch function on"},
     {0x18, SENDER_LOCK, "Door opened while locked"},
     {0x19, SENDER_LOCK, "Command acknowledged"},
 };
@@ -278,11 +278,11 @@ class FrameDecoder {
 // ------------------------------------------------------------- lock state
 enum DoorState : uint8_t { DOOR_UNKNOWN = 0, DOOR_OPEN, DOOR_CLOSED };
 enum LockState : uint8_t { LOCK_UNKNOWN = 0, LOCK_LOCKED, LOCK_UNLOCKED, LOCK_LOCKING };
-enum DayMode : uint8_t {
+enum DayLatch : uint8_t {
   DAY_UNKNOWN = 0,
   DAY_OFF,
-  DAY_ON_BOLT_RETRACTED,
-  DAY_ON_BOLT_OUT,
+  DAY_ON_LATCH_WITHDRAWN,
+  DAY_ON_LATCH_OUT,
 };
 // Tri-state, so an entity can stay unpublished until the bus tells us.
 enum Tri : uint8_t { TRI_UNKNOWN = 0, TRI_FALSE, TRI_TRUE };
@@ -294,7 +294,7 @@ enum Tri : uint8_t { TRI_UNKNOWN = 0, TRI_FALSE, TRI_TRUE };
 struct StateTracker {
   DoorState door{DOOR_UNKNOWN};
   LockState lock{LOCK_UNKNOWN};
-  DayMode day{DAY_UNKNOWN};
+  DayLatch day{DAY_UNKNOWN};
   Tri fault{TRI_UNKNOWN};   // 0x0D
   Tri tamper{TRI_UNKNOWN};  // 0x18
 
@@ -306,7 +306,7 @@ struct StateTracker {
     tamper = TRI_UNKNOWN;
     day_active_ = false;
     day_known_ = false;
-    bolt_retracted_ = false;
+    latch_withdrawn_ = false;
     last_command_ = 0;
   }
 
@@ -326,26 +326,27 @@ struct StateTracker {
         door = DOOR_OPEN;
         if (lock == LOCK_UNKNOWN) // update lock status, when door is opened lock is unlocked. 
           lock = LOCK_UNLOCKED;
-        bolt_retracted_ = false;
+        latch_withdrawn_ = false;
         break;
       case 0x03:  // door closed, not locked
         door = DOOR_CLOSED;
         lock = LOCK_UNLOCKED;
-        bolt_retracted_ = false;
+        latch_withdrawn_ = false;
         break;
       case 0x05:  // locking started
         lock = LOCK_LOCKING;
         break;
-      case 0x06:  // bolts retracted
+      case 0x06:  // bolts withdrawn
         // Not while a tamper is active. Forcing a locked door also produces
         // 0x06 - the bolts are no longer engaging anything - but the lock is
         // still very much locked.
         //
         // 0x06 cannot simply be ignored either. While the bolts are held
-        // retracted and the latch has not re-engaged - permanent open, or day
-        // mode before the door is first cycled - 0x06 is what the lock repeats
-        // every ~14.9 s, and nothing else is sent at all. It is then the only
-        // message that would tell us the lock is unlocked after a reboot.
+        // withdrawn and the latch has not re-engaged - permanent open
+        // function, or day latch function before the door is first cycled -
+        // 0x06 is what the lock repeats every ~14.9 s, and nothing else is
+        // sent at all. It is then the only message that would tell us the
+        // lock is unlocked after a reboot.
         if (tamper != TRI_TRUE)
           lock = LOCK_UNLOCKED;
         break;
@@ -354,12 +355,12 @@ struct StateTracker {
         lock = LOCK_LOCKED;
         day_active_ = false;
         day_known_ = true;
-        bolt_retracted_ = false;
+        latch_withdrawn_ = false;
         break;
-      case 0x08:  // day bolt retracted
-        bolt_retracted_ = true;
+      case 0x08:  // latch withdrawn
+        latch_withdrawn_ = true;
         break;
-      case 0x11:  // cmd day mode on, day bolt retracted once (jumper TGF)
+      case 0x11:  // cmd day latch function on, latch withdrawn once (jumper TGF)
         day_active_ = true;
         day_known_ = true;
         break;
@@ -369,9 +370,9 @@ struct StateTracker {
         lock = LOCK_LOCKED;
         day_active_ = false;
         day_known_ = true;
-        bolt_retracted_ = false;
+        latch_withdrawn_ = false;
         break;
-      case 0x13:  // cmd day mode off
+      case 0x13:  // cmd day latch function off
         day_active_ = false;
         day_known_ = true;
         break;
@@ -380,19 +381,19 @@ struct StateTracker {
         break;
       case 0x16:  // action complete: unlocked
         lock = LOCK_UNLOCKED;
-        // With jumper TGF the day bolt is retracted only briefly and comes
-        // back out; 0x16 marks the end of that window. After 0x12 (loop
-        // function 9+10) the day bolt stays retracted, so only clear it for
+        // With jumper TGF the latch is withdrawn only briefly and comes back
+        // out; 0x16 marks the end of that window. Under the permanent open
+        // function (0x12) the latch stays withdrawn, so only clear it for
         // the 0x11 variant.
         if (last_command_ == 0x11)
-          bolt_retracted_ = false;
+          latch_withdrawn_ = false;
         // The tamper state has no status message of its own to end it: while
         // it lasts the lock reports neither the door opening nor closing. It
         // is only lifted once the lock is commanded to unlock, and 0x16 is
         // what reports that having completed.
         tamper = TRI_FALSE;
         break;
-      case 0x17:  // cmd day mode on
+      case 0x17:  // cmd day latch function on
         day_active_ = true;
         day_known_ = true;
         break;
@@ -412,7 +413,7 @@ struct StateTracker {
     else if (!day_active_)
       day = DAY_OFF;
     else
-      day = bolt_retracted_ ? DAY_ON_BOLT_RETRACTED : DAY_ON_BOLT_OUT;
+      day = latch_withdrawn_ ? DAY_ON_LATCH_WITHDRAWN : DAY_ON_LATCH_OUT;
   }
 
   static const char *door_str(DoorState s) {
@@ -430,11 +431,11 @@ struct StateTracker {
       default: return "Unknown";
     }
   }
-  static const char *day_str(DayMode s) {
+  static const char *day_str(DayLatch s) {
     switch (s) {
       case DAY_OFF: return "Off";
-      case DAY_ON_BOLT_RETRACTED: return "On, day bolt retracted";
-      case DAY_ON_BOLT_OUT: return "On, day bolt out";
+      case DAY_ON_LATCH_WITHDRAWN: return "On, latch withdrawn";
+      case DAY_ON_LATCH_OUT: return "On, latch out";
       default: return "Unknown";
     }
   }
@@ -449,7 +450,7 @@ struct StateTracker {
  protected:
   bool day_active_{false};
   bool day_known_{false};
-  bool bolt_retracted_{false};
+  bool latch_withdrawn_{false};
   uint8_t last_command_{0};
 };
 

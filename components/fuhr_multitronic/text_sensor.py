@@ -10,7 +10,7 @@ DEPENDENCIES = ["fuhr_multitronic"]
 CONF_MESSAGE = "message"
 CONF_DOOR = "door"
 CONF_LOCK = "lock"
-CONF_DAY_MODE = "day_mode"
+CONF_DAY_LATCH = "day_latch"
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -21,7 +21,7 @@ CONFIG_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_DOOR): text_sensor.text_sensor_schema(icon="mdi:door"),
         cv.Optional(CONF_LOCK): text_sensor.text_sensor_schema(icon="mdi:lock"),
-        cv.Optional(CONF_DAY_MODE): text_sensor.text_sensor_schema(
+        cv.Optional(CONF_DAY_LATCH): text_sensor.text_sensor_schema(
             icon="mdi:weather-sunny"
         ),
     }
@@ -31,7 +31,7 @@ SETTERS = {
     CONF_MESSAGE: "set_message_sensor",
     CONF_DOOR: "set_door_sensor",
     CONF_LOCK: "set_lock_sensor",
-    CONF_DAY_MODE: "set_day_mode_sensor",
+    CONF_DAY_LATCH: "set_day_latch_sensor",
 }
 
 
