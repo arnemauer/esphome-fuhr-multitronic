@@ -30,3 +30,16 @@ jobs:
           printf 'wifi_ssid: test\nwifi_password: testtesttest\n' > secrets.yaml
       - name: Validate example configuration
         run: esphome config fuhr_lock.yaml
+
+  mermaid:
+    name: Mermaid diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install the mermaid parser
+        run: npm install --no-save mermaid jsdom
+      - name: Parse every mermaid block
+        run: node tests/check_mermaid.mjs

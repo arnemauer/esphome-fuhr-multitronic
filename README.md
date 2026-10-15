@@ -599,7 +599,7 @@ sequenceDiagram
     L->>C: 0x02 Door opened
     L->>C: 0x18 Door opened while locked
     L->>C: 0x06 Bolts withdrawn
-    Note right of L: all three within ~50 ms;<br/>0x06 does NOT mean unlocked
+    Note right of L: all three within ~50 ms —<br/>0x06 does NOT mean unlocked
     loop every ~14.9 s
         L->>C: 0x18 Door opened while locked
     end
