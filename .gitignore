@@ -16,3 +16,6 @@ secrets.yaml
 *.swp
 .DS_Store
 node_modules
+
+# Windows
+desktop.ini
