@@ -46,17 +46,13 @@ fuhr_multitronic:
     number: GPIO16
     mode:
       input: true
-    # The opto-coupler interface in docs/wiring.svg inverts: the GPIO idles
-    # high and is pulled low while the bus is driven high. Set this to false
-    # if your interface does not invert.
-    inverted: true
-  # Optional. Wired to the line that is asserted while the controller talks.
-  # Leave it out and the direction is derived from the message code instead.
-  ctrl_pin:
-    number: GPIO17
-    mode:
-      input: true
-    inverted: true
+    # The transistor stage in docs/wiring.svg already inverts, so the GPIO
+    # sees what the controller's PIC sees: idle low, start bit high. That is
+    # what the component expects natively, hence false.
+    inverted: false
+  # ctrl_pin is deliberately absent. The controller's transmit signal only
+  # exists inside the controller, not at a terminal, and direction is
+  # recovered from the message code anyway.
   baud_rate: 2000
   # Three missed keep-alives. See "Supervision" in README.md - and note
   # that Home Assistant must also alarm on the entity going unavailable,

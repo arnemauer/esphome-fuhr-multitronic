@@ -58,7 +58,6 @@ drives the bus.
 - [Why this exists](#why-this-exists)
 - [Entities](#entities)
 - [Wiring](#wiring)
-  - [Where to tap](#where-to-tap)
   - [Interface circuit](#interface-circuit)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -106,109 +105,80 @@ read from it, and the component does not guess. See
 
 ## Wiring
 
-### Where to tap
+The bus is a **single open-collector wire**. It rests high at roughly 11 V,
+pulled up through 22 kΩ inside the controller, and either party transmits by
+pulling it low. That is not a guess: it is what the original controller's own
+schematic shows, and it settles the polarity question the captures alone could
+not answer — see [Physical layer](#physical-layer).
 
-Two places carry the same traffic, and the choice decides how much hardware
-you need and which way round the signal arrives.
-
-| Tap point | Level | Trade-off |
-|---|---|---|
-| **The controller's PIC input** — where the captures were taken | already logic level | Simplest: a high-impedance buffer or opto and you are done, and the polarity matches everything documented here by construction. But it is an internal node of the controller rather than a terminal, so keep the load off it |
-| **The 12 V terminal** | lock supply level | A proper terminal to land a wire on, and it survives the controller being opened up or replaced. Needs a level stage, and **its idle polarity is unverified** — see [Physical layer](#physical-layer) |
-
-> **Whichever you pick, measure it first.** Put a scope or meter on it and note
-> the resting level and the swing. Everything downstream — the `inverted:`
-> setting, the divider ratio, the gate threshold — follows from that one
-> observation, and it is a minute's work.
-
-> **Never connect a 12 V line straight to a GPIO.** A worked interface circuit
-> is [below](#interface-circuit).
+Because there is only one wire, there is only one thing to tap. The separate
+controller-TX signal that appears in the captures is the PIC's own transmit
+pin, which exists only inside the controller; it is not available at a
+terminal. Direction is recovered from the message code instead, which works
+just as well and is covered by the test suite.
 
 | Signal | Required | Notes |
 |---|---|---|
-| Bus | yes | carries all traffic. Set `inverted:` to match your tap point and interface — see [below](#getting-the-polarity-right) |
-| Controller TX | no | the line the controller drives while it transmits. It carries the controller's own drive signal, so it follows the data rather than sitting at a steady level; the component samples it at the start bit only. Improves direction reporting and lets it flag a message arriving from the wrong side |
-
-The controller-TX line is genuinely optional: every message code is only ever
-sent by one of the two parties, so direction is recovered from the code table
-when that line is absent. Both paths are covered by the test suite.
+| Bus | yes | the single data wire, plus the lock's ground as reference |
+| Controller TX | no | only reachable inside the controller, at the PIC's transmit pin. Skip it |
 
 ### Interface circuit
 
-![Opto-isolated tap on the lock bus](docs/wiring.svg)
+![Reading the bus the way the controller does](docs/wiring.svg)
 
-Two identical channels, built from parts any shop stocks. The point of the
-design is that **the bus never has to drive anything**:
-
-* The signal line sees only the `100k` / `47k` divider — **about 80 µA** at 12 V,
-  and the MOSFET gate itself draws nothing. Whatever drives that line barely
-  notices the tap is there. That holds whichever way round the line idles.
-* The opto LED current comes from the lock's **12 V supply rail**, switched by
-  the MOSFET. A supply rail can source milliamps without complaint; a signal
-  line is a different matter, which is why the LED is not hung off it directly.
-* The two sides share no ground. That keeps the tap passive, and it is what
-  lets the ESP run from its own supply and outlive a cut to the lock — see
-  [Supervision](#supervision-alarming-when-the-lock-goes-quiet).
+This is **the receive stage of the original Fuhr controller, copied component
+for component** — same topology, same values. Borrowing the manufacturer's own
+input stage is the shortest route to something that provably does not disturb
+the bus, because it is already sitting on it.
 
 | Ref | Part | Value | Purpose |
 |---|---|---|---|
-| R1, R6 | resistor | 100 kΩ | upper leg of the divider; sets the load on the bus |
-| R2, R7 | resistor | 47 kΩ | lower leg; gives ~3.8 V at the gate for a 12 V bus |
-| R3, R8 | resistor | 3.3 kΩ | LED current, ~3.3 mA from the 12 V rail |
-| R4, R9 | resistor | 4.7 kΩ | pull-up on the ESP side |
-| R5, R10 | resistor | 100 Ω | series protection into the GPIO |
-| Q1, Q2 | N-channel MOSFET | 2N7000 | switches the LED; gate draws no bus current |
-| U1, U2 | opto-coupler | PC817 | the isolation barrier |
+| R1 | resistor | 220 kΩ | bus into the base; sets the load |
+| R2 | resistor | 47 kΩ | base to ground, defines the threshold |
+| R3 | resistor | 10 kΩ | collector pull-up to 3.3 V |
+| R4 | resistor | 100 Ω | series protection into the GPIO |
+| Q1 | NPN transistor | BC847B | the level shift and inversion |
 
-#### Getting the polarity right
+Three things fall out of it, all of them improvements on an opto-coupler:
 
-The circuit as drawn **assumes the 12 V line rests near 0 V and is driven high
-for the start bit.** That is the polarity seen at the PIC input; whether the
-terminal itself behaves the same way has not been measured. So decide this from
-your own scope reading rather than from the diagram:
+* **The bus only ever drives a base.** About 50 µA through R1 — the base clamps
+  at ~0.7 V, so the load is set by the 220 kΩ, not by the divider ratio.
+* **No LED, so nothing to leave lit.** An opto sitting on an idle-high line
+  conducts continuously: wasted current, the CTR ageing for nothing, and the
+  slow turn-off edge landing on the start bit, which is the edge the decoder
+  synchronises on. None of that applies here.
+* **No 12 V rail needed.** The stage runs entirely off the ESP's own 3.3 V.
+  The only wires to the lock are the data line and ground.
 
-| At your tap point, the line rests… | The GPIO then rests… | Set |
-|---|---|---|
-| **low**, pulsing high for the start bit | high (opto conducts only during frames) | `inverted: true` |
-| **high**, pulsing low for the start bit | low (opto conducts except during frames) | `inverted: false` |
+**Set `inverted: false`.** The transistor inverts, so the GPIO sees exactly
+what the PIC sees: idle low, start bit high — which is what the component
+expects natively, and what every capture in this repository recorded.
 
 ```yaml
 bus_pin:
   number: GPIO16
   mode: {input: true}
-  inverted: true        # see the table above
-ctrl_pin:
-  number: GPIO17
-  mode: {input: true}
-  inverted: true
+  inverted: false
 ```
 
-If the line turns out to rest **high**, the circuit still works but the LED is
-lit whenever the bus is idle — about 3.3 mA burned continuously, and the opto
-ages for nothing. Worth swapping the MOSFET for a PNP/P-channel stage, or
-simply moving the tap to the PIC input, so the LED only lights during frames.
+**What you give up is isolation.** The ESP's ground has to be tied to the
+lock's, as the original controller's is. Keep the ESP on its own 5 V supply
+anyway: then cutting the lock's power still leaves the ESP alive to notice the
+silence — see [Supervision](#supervision-alarming-when-the-lock-goes-quiet).
+A cut data wire is equally visible: the base sees nothing, Q1 stays off, the
+GPIO sits high and no frame ever decodes, so the timeout fires.
 
-An easy sanity check once it is wired: the lock sends a status roughly every
-15 seconds. Watch the ESPHome log — if the polarity is right, frames decode and
-the CRC passes; if it is wrong you will see nothing at all, because the decoder
-is waiting for a start edge that never comes.
-
-**Speed is not a concern.** A PC817 with a 4.7 kΩ pull-up turns off in tens of
-microseconds; a bit lasts 500 µs and the decoder samples at bit centres, so
-even 100 µs of edge skew would not matter. The signal already shows ~20 µs of
-rise/fall asymmetry.
-
-**Before you build**, measure the line with a meter or scope: note its resting
-level and confirm it swings roughly 0 V to 12 V referenced to the lock's own
-ground. The divider ratio and the gate threshold both follow from that. Adjust
-R1/R2 so the gate sees about 3–5 V when the line is at its active level.
+**Speed is not a concern.** The original drives a PIC interrupt pin through
+this same stage at the same bit rate. A 1 nF capacitor across the bus in the
+controller already rounds the edges to a ~22 µs time constant against a 500 µs
+bit; do not add another one at your tap.
 
 `docs/make_wiring.py` regenerates the diagram.
 
-> A non-isolated variant — divider straight into a 74LVC1G17 Schmitt-trigger
-> buffer — is simpler and loads the bus even less, but it needs a shared ground
-> between the lock and the ESP. That rules out an independent supply for the
-> ESP, and with it the supervision behaviour above.
+> If you do need galvanic isolation, put an opto-coupler after Q1 rather than
+> in place of it — drive its LED from the collector so it only lights during
+> frames. Isolating the bus side directly means an LED sitting on an idle-high
+> line, which is the arrangement this circuit exists to avoid.
 
 ## Installation
 
@@ -229,9 +199,7 @@ fuhr_multitronic:
   bus_pin:
     number: GPIO16
     mode: {input: true}
-  ctrl_pin:                 # optional
-    number: GPIO17
-    mode: {input: true}
+    inverted: false         # with the circuit above; see Interface circuit
   baud_rate: 2000           # optional
   timeout: 30s              # optional, drives the `connected` sensor
   publish_acks: false       # optional, acknowledges double the message rate
@@ -362,25 +330,29 @@ Everything below was derived from 30 logic-analyser captures totalling
 | | |
 |---|---|
 | Bit rate | **2000 baud** (500 µs per bit) |
-| Measured at | the controller's **PIC input**, after its input stage — not on the 12 V terminal |
-| Idle level | low *at that point* |
-| Polarity | inverted UART — a **high is a logical 0** *at that point* |
-| Topology | one shared line; both parties transmit on it |
-| Direction | a second line carries the controller's drive: active only during controller frames, and following the data within them. Its state at the start bit is enough to tell who is talking |
+| Topology (bus) | open collector: pulled up through 22 kΩ to ~11 V, either party transmits by pulling low |
+| Idle level (bus) | **high** |
+| Measured at | the controller's **PIC input**, one inverting stage further on, where idle reads low |
+| Polarity (as captured) | inverted UART — a high is a logical 0 |
+| Direction | inside the controller a second node carries the PIC's own transmit drive: active only during controller frames, and following the data within them. Its state at the start bit tells who is talking. Not available at a terminal |
 
-> **Where these levels were measured matters.** All 30 captures were taken on
-> the signal as it reaches the controller's PIC, which is already at logic
-> level. Input stages that bring 12 V down to logic level are very often
-> *inverting* — a transistor or opto pulling a pulled-up node to ground — so
-> the line at the 12 V terminal may well idle **high** and pulse **low** for
-> the start bit, the opposite of the table above. That has not been measured,
-> so this README does not claim it either way.
+> **Two polarities, one signal.** Every capture in this repository was taken
+> at the controller's PIC input, which sits behind a 220 k/47 k divider into
+> the base of a BC847B — an inverting common-emitter stage. So the bus itself
+> idles **high** and is pulled **low** to send, while the captured signal idles
+> **low** with a **high** start bit. The frame descriptions below are in terms
+> of the captured signal.
 >
-> None of the protocol below depends on it. Bit rate, framing, Manchester
+> This was settled by reading the original controller's schematic, not guessed:
+> the same stage also shows a 22 kΩ pull-up to 12 V through two diodes and an
+> NPN pulling the line down through 100 Ω, which is an open-collector bus and
+> explains how both parties share one wire.
+>
+> Nothing else in the protocol depends on it. Bit rate, framing, Manchester
 > coding, the CRC and every message code are relative to whatever the signal
-> does, so they hold at either tap point. Only the absolute polarity — and
-> therefore the `inverted:` setting and the interface circuit — depends on
-> where you connect. See [Wiring](#wiring).
+> does, so they hold at either point. The [interface
+> circuit](#interface-circuit) copies that same inverting stage, so the ESP
+> sees precisely what the PIC sees.
 
 ## Frame format
 
