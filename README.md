@@ -58,6 +58,7 @@ drives the bus.
 - [Why this exists](#why-this-exists)
 - [Entities](#entities)
 - [Wiring](#wiring)
+  - [Where to tap](#where-to-tap)
   - [Interface circuit](#interface-circuit)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -105,12 +106,27 @@ read from it, and the component does not guess. See
 
 ## Wiring
 
-> **The bus runs at the lock's supply voltage. Do not connect it straight to a
-> GPIO.** A worked interface circuit is [below](#interface-circuit).
+### Where to tap
+
+Two places carry the same traffic, and the choice decides how much hardware
+you need and which way round the signal arrives.
+
+| Tap point | Level | Trade-off |
+|---|---|---|
+| **The controller's PIC input** — where the captures were taken | already logic level | Simplest: a high-impedance buffer or opto and you are done, and the polarity matches everything documented here by construction. But it is an internal node of the controller rather than a terminal, so keep the load off it |
+| **The 12 V terminal** | lock supply level | A proper terminal to land a wire on, and it survives the controller being opened up or replaced. Needs a level stage, and **its idle polarity is unverified** — see [Physical layer](#physical-layer) |
+
+> **Whichever you pick, measure it first.** Put a scope or meter on it and note
+> the resting level and the swing. Everything downstream — the `inverted:`
+> setting, the divider ratio, the gate threshold — follows from that one
+> observation, and it is a minute's work.
+
+> **Never connect a 12 V line straight to a GPIO.** A worked interface circuit
+> is [below](#interface-circuit).
 
 | Signal | Required | Notes |
 |---|---|---|
-| Bus | yes | the GPIO must idle **low** and go **high** for the start bit. The opto circuit below inverts, so it needs `inverted: true` |
+| Bus | yes | carries all traffic. Set `inverted:` to match your tap point and interface — see [below](#getting-the-polarity-right) |
 | Controller TX | no | the line the controller drives while it transmits. It carries the controller's own drive signal, so it follows the data rather than sitting at a steady level; the component samples it at the start bit only. Improves direction reporting and lets it flag a message arriving from the wrong side |
 
 The controller-TX line is genuinely optional: every message code is only ever
@@ -126,7 +142,7 @@ design is that **the bus never has to drive anything**:
 
 * The signal line sees only the `100k` / `47k` divider — **about 80 µA** at 12 V,
   and the MOSFET gate itself draws nothing. Whatever drives that line barely
-  notices the tap is there.
+  notices the tap is there. That holds whichever way round the line idles.
 * The opto LED current comes from the lock's **12 V supply rail**, switched by
   the MOSFET. A supply rail can source milliamps without complaint; a signal
   line is a different matter, which is why the LED is not hung off it directly.
@@ -144,30 +160,48 @@ design is that **the bus never has to drive anything**:
 | Q1, Q2 | N-channel MOSFET | 2N7000 | switches the LED; gate draws no bus current |
 | U1, U2 | opto-coupler | PC817 | the isolation barrier |
 
-**Set `inverted: true` on both pins.** The opto conducts only while the bus is
-driven high, so each GPIO idles high and the signal arrives inverted:
+#### Getting the polarity right
+
+The circuit as drawn **assumes the 12 V line rests near 0 V and is driven high
+for the start bit.** That is the polarity seen at the PIC input; whether the
+terminal itself behaves the same way has not been measured. So decide this from
+your own scope reading rather than from the diagram:
+
+| At your tap point, the line rests… | The GPIO then rests… | Set |
+|---|---|---|
+| **low**, pulsing high for the start bit | high (opto conducts only during frames) | `inverted: true` |
+| **high**, pulsing low for the start bit | low (opto conducts except during frames) | `inverted: false` |
 
 ```yaml
 bus_pin:
   number: GPIO16
   mode: {input: true}
-  inverted: true
+  inverted: true        # see the table above
 ctrl_pin:
   number: GPIO17
   mode: {input: true}
   inverted: true
 ```
 
+If the line turns out to rest **high**, the circuit still works but the LED is
+lit whenever the bus is idle — about 3.3 mA burned continuously, and the opto
+ages for nothing. Worth swapping the MOSFET for a PNP/P-channel stage, or
+simply moving the tap to the PIC input, so the LED only lights during frames.
+
+An easy sanity check once it is wired: the lock sends a status roughly every
+15 seconds. Watch the ESPHome log — if the polarity is right, frames decode and
+the CRC passes; if it is wrong you will see nothing at all, because the decoder
+is waiting for a start edge that never comes.
+
 **Speed is not a concern.** A PC817 with a 4.7 kΩ pull-up turns off in tens of
 microseconds; a bit lasts 500 µs and the decoder samples at bit centres, so
-even 100 µs of edge skew would not matter. The bus itself already shows ~20 µs
-of rise/fall asymmetry.
+even 100 µs of edge skew would not matter. The signal already shows ~20 µs of
+rise/fall asymmetry.
 
-**Before you build**, measure the bus with a meter or scope and confirm it
-really swings between 0 V and about 12 V referenced to the lock's own ground,
-and that it idles low. The divider ratio and the gate threshold both depend on
-that. If your installation differs, adjust R1/R2 so the gate sees roughly 3–5 V
-when the bus is at its high level.
+**Before you build**, measure the line with a meter or scope: note its resting
+level and confirm it swings roughly 0 V to 12 V referenced to the lock's own
+ground. The divider ratio and the gate threshold both follow from that. Adjust
+R1/R2 so the gate sees about 3–5 V when the line is at its active level.
 
 `docs/make_wiring.py` regenerates the diagram.
 
@@ -328,10 +362,25 @@ Everything below was derived from 30 logic-analyser captures totalling
 | | |
 |---|---|
 | Bit rate | **2000 baud** (500 µs per bit) |
-| Idle level | low |
-| Polarity | inverted UART — a physical **high is a logical 0** |
+| Measured at | the controller's **PIC input**, after its input stage — not on the 12 V terminal |
+| Idle level | low *at that point* |
+| Polarity | inverted UART — a **high is a logical 0** *at that point* |
 | Topology | one shared line; both parties transmit on it |
 | Direction | a second line carries the controller's drive: active only during controller frames, and following the data within them. Its state at the start bit is enough to tell who is talking |
+
+> **Where these levels were measured matters.** All 30 captures were taken on
+> the signal as it reaches the controller's PIC, which is already at logic
+> level. Input stages that bring 12 V down to logic level are very often
+> *inverting* — a transistor or opto pulling a pulled-up node to ground — so
+> the line at the 12 V terminal may well idle **high** and pulse **low** for
+> the start bit, the opposite of the table above. That has not been measured,
+> so this README does not claim it either way.
+>
+> None of the protocol below depends on it. Bit rate, framing, Manchester
+> coding, the CRC and every message code are relative to whatever the signal
+> does, so they hold at either tap point. Only the absolute polarity — and
+> therefore the `inverted:` setting and the interface circuit — depends on
+> where you connect. See [Wiring](#wiring).
 
 ## Frame format
 
